@@ -424,8 +424,8 @@ Assistance animals are welcome at all locations.
   }
 
   Future<void> _initializeScreen() async {
-    await _ttsService.speak(
-      'Discover screen loaded. Welcome to the heart of Buganda, Uganda. Explore ${_bugandaTours.length} incredible tour destinations including royal palaces, sacred sites, and cultural centers. Use voice commands like "show historical tours" or "describe Kasubi Tombs" to explore. Say "help commands" for available options.',
+    await _ttsService.speakWithPriority(
+      'Discover Buganda tours loaded. Voice navigation active. ${_bugandaTours.length} destinations available including royal palaces, sacred sites, and cultural centers. Say "show historical tours", "describe Kasubi Tombs", or "help commands" for options.',
     );
 
     await _loadTours();
@@ -482,11 +482,11 @@ Assistance animals are welcome at all locations.
       });
 
       if (allTours.isNotEmpty) {
-        await _ttsService.speak(
-          '${allTours.length} tours found, including ${bugandaTourModels.length} exclusive Buganda destinations. Swipe through the list or use voice commands to explore. Say "tour count" to hear how many tours are available.',
+        await _ttsService.speakWithPriority(
+          '${allTours.length} tours loaded. ${bugandaTourModels.length} Buganda destinations ready. Use voice commands like "next tour", "historical tours", or tap to explore. All tours include accessibility features.',
         );
       } else {
-        await _ttsService.speak(
+        await _ttsService.speakWithPriority(
           'No tours available at the moment. Please check back later.',
         );
       }
@@ -495,7 +495,7 @@ Assistance animals are welcome at all locations.
       setState(() {
         _isLoading = false;
       });
-      await _ttsService.speak(
+      await _ttsService.speakWithPriority(
         'Error loading tours. Please check your connection and try again.',
       );
     }
@@ -525,7 +525,7 @@ Assistance animals are welcome at all locations.
       }).toList();
     });
 
-    _ttsService.speak(
+    _ttsService.speakWithPriority(
       '${_filteredTours.length} tours match your criteria. ${_filteredTours.isNotEmpty ? "Say 'next tour' to navigate through them." : ""}',
     );
   }
@@ -581,7 +581,7 @@ Assistance animals are welcome at all locations.
         categoryDescription = 'All tours are available for exploration.';
     }
 
-    _ttsService.speak('Filtering by $category tours. $categoryDescription');
+    _ttsService.speakWithPriority('Filtering by $category tours. $categoryDescription');
   }
 
   void _onTourSelected(TourModel tour) {
@@ -605,7 +605,7 @@ Highlights: ${tour.highlights}.
       tourDescription += '\nDetailed description: ${tour.audioDescription}';
     }
 
-    _ttsService.speak(tourDescription);
+    _ttsService.speakWithPriority(tourDescription);
   }
 
   @override

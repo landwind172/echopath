@@ -11,35 +11,61 @@ class VoiceNavigationProvider extends ChangeNotifier {
   bool _isListening = false;
   String _lastCommand = '';
   final List<String> _commandHistory = [];
+  bool _isInitializing = false;
 
   bool get isVoiceNavigationEnabled => _isVoiceNavigationEnabled;
   bool get isListening => _isListening;
   String get lastCommand => _lastCommand;
   List<String> get commandHistory => _commandHistory;
+  bool get isInitializing => _isInitializing;
 
   VoiceNavigationProvider() {
     _voiceService.addListener(_onVoiceServiceChanged);
-    // Start continuous listening when provider is created
     _initializeVoiceNavigation();
   }
 
   Future<void> _initializeVoiceNavigation() async {
-    if (_isVoiceNavigationEnabled) {
-      await _voiceService.startContinuousListening();
+    if (_isInitializing) return;
+    
+    _isInitializing = true;
+    notifyListeners();
+    
+    try {
+      // Ensure voice service is properly initialized
+      if (!_voiceService.isInitialized) {
+        await _voiceService.initialize();
+      }
+      
+      if (_isVoiceNavigationEnabled && _voiceService.isInitialized) {
+        await _voiceService.startContinuousListening();
+      }
+    } catch (e) {
+      debugPrint('Voice navigation initialization error: $e');
+    } finally {
+      _isInitializing = false;
+      notifyListeners();
     }
   }
 
   void _onVoiceServiceChanged() {
+    final wasListening = _isListening;
     _isListening = _voiceService.isListening;
+    
     if (_voiceService.lastWords.isNotEmpty &&
         _voiceService.lastWords != _lastCommand) {
       _lastCommand = _voiceService.lastWords;
       _addToCommandHistory(_lastCommand);
     }
-    notifyListeners();
+    
+    // Only notify if listening state actually changed to reduce unnecessary rebuilds
+    if (wasListening != _isListening) {
+      notifyListeners();
+    }
   }
 
   void _addToCommandHistory(String command) {
+    if (command.trim().isEmpty) return;
+    
     _commandHistory.insert(0, command);
     if (_commandHistory.length > 10) {
       _commandHistory.removeLast();
@@ -49,19 +75,23 @@ class VoiceNavigationProvider extends ChangeNotifier {
   Future<void> toggleVoiceNavigation() async {
     _isVoiceNavigationEnabled = !_isVoiceNavigationEnabled;
 
-    if (_isVoiceNavigationEnabled) {
-      await _voiceService.startContinuousListening();
-      await _ttsService.speak('Voice navigation enabled');
-    } else {
-      _voiceService.stopContinuousListening();
-      await _ttsService.speak('Voice navigation disabled');
+    try {
+      if (_isVoiceNavigationEnabled) {
+        await _voiceService.startContinuousListening();
+        await _ttsService.speakWithPriority('Voice navigation enabled');
+      } else {
+        _voiceService.stopContinuousListening();
+        await _ttsService.speakWithPriority('Voice navigation disabled');
+      }
+    } catch (e) {
+      debugPrint('Toggle voice navigation error: $e');
     }
 
     notifyListeners();
   }
 
   Future<void> startListening() async {
-    if (_isVoiceNavigationEnabled) {
+    if (_isVoiceNavigationEnabled && !_isListening) {
       await _voiceService.startListening();
     }
   }
@@ -74,6 +104,10 @@ class VoiceNavigationProvider extends ChangeNotifier {
     await _ttsService.speak(message);
   }
 
+  Future<void> speakFeedbackWithPriority(String message) async {
+    await _ttsService.speakWithPriority(message);
+  }
+
   void clearCommandHistory() {
     _commandHistory.clear();
     notifyListeners();
@@ -81,7 +115,26 @@ class VoiceNavigationProvider extends ChangeNotifier {
 
   void clearLastCommand() {
     _lastCommand = '';
-    notifyListeners();
+    // Don't notify listeners for this change to reduce rebuilds
+  }
+
+  Future<void> restartVoiceNavigation() async {
+    if (!_isVoiceNavigationEnabled) return;
+    
+    try {
+      _voiceService.stopContinuousListening();
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!_voiceService.isInitialized) {
+        await _voiceService.initialize();
+      }
+      
+      if (_voiceService.isInitialized) {
+        await _voiceService.startContinuousListening();
+      }
+    } catch (e) {
+      debugPrint('Restart voice navigation error: $e');
+    }
   }
 
   @override

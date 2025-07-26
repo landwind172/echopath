@@ -12,6 +12,10 @@ class VoiceService extends ChangeNotifier {
   bool _isInitialized = false;
   String _lastWords = '';
   Timer? _listeningTimer;
+  Timer? _restartTimer;
+  bool _isProcessingCommand = false;
+  int _consecutiveErrors = 0;
+  static const int _maxConsecutiveErrors = 3;
   
   bool get isListening => _isListening;
   bool get isInitialized => _isInitialized;
@@ -22,31 +26,46 @@ class VoiceService extends ChangeNotifier {
       _isInitialized = await _speechToText.initialize(
         onStatus: _onSpeechStatus,
         onError: _onSpeechError,
+        debugLogging: false,
       );
+      
+      if (_isInitialized) {
+        _consecutiveErrors = 0;
+        debugPrint('Voice service initialized successfully');
+      }
+      
       notifyListeners();
     } catch (e) {
       debugPrint('Voice service initialization error: $e');
+      _consecutiveErrors++;
     }
   }
 
   Future<void> startListening() async {
-    if (!_isInitialized || _isListening) return;
+    if (!_isInitialized || _isListening || _isProcessingCommand) return;
 
     try {
+      // Cancel any existing restart timer
+      _restartTimer?.cancel();
+      
       await _speechToText.listen(
         onResult: _onSpeechResult,
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 2),
         listenOptions: SpeechListenOptions(
-          partialResults: true,
-          cancelOnError: false,
+          partialResults: false, // Only final results to reduce glitches
+          cancelOnError: true,
+          onDevice: true, // Use on-device recognition when available
         ),
         localeId: AppConstants.defaultLanguage,
       );
+      
       _isListening = true;
+      _consecutiveErrors = 0;
       notifyListeners();
     } catch (e) {
       debugPrint('Start listening error: $e');
+      _handleListeningError();
     }
   }
 
@@ -65,8 +84,12 @@ class VoiceService extends ChangeNotifier {
   Future<void> startContinuousListening() async {
     if (!_isInitialized) return;
 
-    _listeningTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (!_isListening && _isInitialized) {
+    // Start immediate listening
+    await startListening();
+
+    // Set up continuous listening with smart restart
+    _listeningTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+      if (!_isListening && !_isProcessingCommand && _consecutiveErrors < _maxConsecutiveErrors) {
         await startListening();
       }
     });
@@ -75,232 +98,218 @@ class VoiceService extends ChangeNotifier {
   void stopContinuousListening() {
     _listeningTimer?.cancel();
     _listeningTimer = null;
+    _restartTimer?.cancel();
+    _restartTimer = null;
     stopListening();
   }
 
   void _onSpeechResult(result) {
-    _lastWords = result.recognizedWords.toLowerCase();
-    notifyListeners();
-    
-    if (result.finalResult) {
-      _processVoiceCommand(_lastWords);
+    if (result.finalResult && result.recognizedWords.isNotEmpty) {
+      _lastWords = result.recognizedWords.toLowerCase().trim();
+      notifyListeners();
+      
+      // Process command with debouncing to prevent glitches
+      if (!_isProcessingCommand) {
+        _processVoiceCommand(_lastWords);
+      }
     }
   }
 
   void _onSpeechStatus(String status) {
     debugPrint('Speech status: $status');
-    if (status == 'done' || status == 'notListening') {
-      _isListening = false;
-      notifyListeners();
+    
+    switch (status) {
+      case 'done':
+      case 'notListening':
+        _isListening = false;
+        _scheduleRestart();
+        break;
+      case 'listening':
+        _isListening = true;
+        _consecutiveErrors = 0;
+        break;
     }
+    notifyListeners();
   }
 
   void _onSpeechError(error) {
     debugPrint('Speech error: $error');
     _isListening = false;
+    _handleListeningError();
     notifyListeners();
   }
 
-  void _processVoiceCommand(String command) {
-    debugPrint('Processing voice command: $command');
-    final ttsService = getIt<TTSService>();
-    final navigationService = getIt<NavigationService>();
-
-    // Enhanced navigation commands for main screens
-    if (command.contains('home') ||
-        command.contains('go home') ||
-        command.contains('main screen')) {
-      navigationService.navigateToHome();
-      ttsService.speak('Navigating to home screen');
-    } else if (command.contains('map') ||
-        command.contains('show map') ||
-        command.contains('open map')) {
-      navigationService.navigateToMap();
-      ttsService.speak('Opening map screen');
-    } else if (command.contains('discover') ||
-        command.contains('tours') ||
-        command.contains('show tours') ||
-        command.contains('browse tours')) {
-      navigationService.navigateToDiscover();
-      ttsService.speak('Opening discover screen');
-    } else if (command.contains('downloads') ||
-        command.contains('offline') ||
-        command.contains('my downloads')) {
-      navigationService.navigateToDownloads();
-      ttsService.speak('Opening downloads screen');
-    } else if (command.contains('help') ||
-        command.contains('support') ||
-        command.contains('get help')) {
-      navigationService.navigateToHelpSupport();
-      ttsService.speak('Opening help and support screen');
-    } else if (command.contains('go back') ||
-        command.contains('back') ||
-        command.contains('previous')) {
-      navigationService.goBack();
-      ttsService.speak('Going back');
-    } else if (command.contains('where am i') ||
-        command.contains('my location') ||
-        command.contains('current location')) {
-      // This will be handled by the map screen
-      ttsService.speak('Checking your current location');
-    } else if (command.contains('zoom in') || command.contains('closer')) {
-      ttsService.speak('Zooming in on the map');
-    } else if (command.contains('zoom out') || command.contains('farther')) {
-      ttsService.speak('Zooming out on the map');
-    } else if (command.contains('zoom to street') ||
-        command.contains('street level')) {
-      ttsService.speak('Zooming to street level');
-    } else if (command.contains('zoom to city') ||
-        command.contains('city level')) {
-      ttsService.speak('Zooming to city level');
-    } else if (command.contains('zoom to country') ||
-        command.contains('country level')) {
-      ttsService.speak('Zooming to country level');
-    } else if (command.contains('move north') || command.contains('go north')) {
-      ttsService.speak('Moving map north');
-    } else if (command.contains('move south') || command.contains('go south')) {
-      ttsService.speak('Moving map south');
-    } else if (command.contains('move east') || command.contains('go east')) {
-      ttsService.speak('Moving map east');
-    } else if (command.contains('move west') || command.contains('go west')) {
-      ttsService.speak('Moving map west');
-    } else if (command.contains('navigate to') ||
-        command.contains('directions to')) {
-      ttsService.speak('Navigation feature coming soon');
-    } else if (command.contains('nearby places') ||
-        command.contains('find places')) {
-      ttsService.speak('Searching for nearby places');
-    } else if (command.contains('start navigation') ||
-        command.contains('navigate')) {
-      ttsService.speak('Starting navigation');
-    } else if (command.contains('stop navigation') ||
-        command.contains('end navigation')) {
-      ttsService.speak('Stopping navigation');
-    } else if (command.contains('toggle voice') ||
-        command.contains('voice mode')) {
-      ttsService.speak('Toggling voice mode');
-    } else if (command.contains('help') || command.contains('commands')) {
-      ttsService.speak('Speaking available commands');
-    } else if (command.contains('clear markers') ||
-        command.contains('remove markers')) {
-      ttsService.speak('Clearing map markers');
-    } else if (command.contains('map info') ||
-        command.contains('map details')) {
-      ttsService.speak('Getting map information');
-    } else if (command.contains('last location') ||
-        command.contains('previous location')) {
-      ttsService.speak('Going to last location');
-    } else if (command.contains('repeat command') ||
-        command.contains('last command')) {
-      ttsService.speak('Repeating last command');
-    } else if (command.contains('command history')) {
-      ttsService.speak('Speaking command history');
-    } else if (command.contains('quick actions') ||
-        command.contains('actions')) {
-      ttsService.speak(
-        'Quick actions are available: Map, Discover Tours, Downloads, and Help & Support',
-      );
-    } else if (command.contains('recent tours') ||
-        command.contains('history')) {
-      ttsService.speak('Recent tours section shows your recently played tours');
-    } else if (command.contains('voice commands') ||
-        command.contains('available commands') ||
-        command.contains('help commands') ||
-        command.contains('what can i say')) {
-      _speakGlobalVoiceCommands(ttsService);
-    } else if (command.contains('describe kasubi') ||
-        command.contains('kasubi tombs') ||
-        command.contains('royal tombs')) {
-      ttsService.speak(
-        'Kasubi Tombs is the sacred burial site of the Kabakas of Buganda. The main building features traditional architecture with a thatched roof and holds deep spiritual significance.',
-      );
-    } else if (command.contains('namugongo') ||
-        command.contains('martyrs shrine')) {
-      ttsService.speak(
-        'Namugongo Martyrs Shrine commemorates 45 young men who were martyred for their Christian faith in 1886. It is a major pilgrimage site with beautiful architecture and peaceful gardens.',
-      );
-    } else if (command.contains('lubiri palace') ||
-        command.contains('kabaka palace')) {
-      ttsService.speak(
-        'Lubiri Palace is the magnificent residence of the Kabaka of Buganda. It combines traditional African architecture with modern amenities and serves as a symbol of the enduring Buganda monarchy.',
-      );
-    } else if (command.contains('mengo hill')) {
-      ttsService.speak(
-        'Mengo Hill is the traditional heart of the Buganda kingdom, offering breathtaking panoramic views of Kampala city and serving as the seat of Buganda power for centuries.',
-      );
-    } else if (command.contains('bulange') || command.contains('parliament')) {
-      ttsService.speak(
-        'Bulange Parliament is where the Buganda kingdom\'s traditional parliament meets. The building features distinctive traditional architecture and represents the democratic traditions of the Buganda people.',
-      );
-    } else if (command.contains('lake victoria')) {
-      ttsService.speak(
-        'Lake Victoria, Africa\'s largest lake, offers stunning views and rich cultural experiences. Visit fishing villages, take boat tours, and enjoy spectacular sunsets over the water.',
-      );
-    } else if (command.contains('ndere') ||
-        command.contains('cultural centre')) {
-      ttsService.speak(
-        'Ndere Cultural Centre is a vibrant hub of Ugandan culture, featuring traditional music, dance performances, and cultural workshops showcasing the diversity of Uganda\'s ethnic groups.',
-      );
-    } else if (command.contains('kampala markets') ||
-        command.contains('owino market')) {
-      ttsService.speak(
-        'Kampala\'s markets are a sensory feast of colors, sounds, and smells. From the bustling Owino Market to craft markets, experience authentic Ugandan life, traditional crafts, and delicious street food.',
-      );
-    } else if (command.contains('offline content') ||
-        command.contains('offline library') ||
-        command.contains('downloads')) {
-      ttsService.speak(
-        'Offline library contains pre-downloaded guides, stories, music, and language lessons about Buganda, Uganda. All content is available without internet connection.',
-      );
-    } else if (command.contains('kasubi guide') ||
-        command.contains('kasubi tombs guide')) {
-      ttsService.speak(
-        'Kasubi Tombs Complete Guide provides detailed audio descriptions, historical background, and cultural significance of the royal burial grounds. Available offline.',
-      );
-    } else if (command.contains('luganda guide') ||
-        command.contains('language guide')) {
-      ttsService.speak(
-        'Learn Luganda guide helps you master basic phrases, greetings, and cultural expressions of the Buganda language. Includes pronunciation guides and cultural context.',
-      );
-    } else if (command.contains('buganda stories') ||
-        command.contains('folktales')) {
-      ttsService.speak(
-        'Buganda Folktales collection features traditional stories, legends, and cultural narratives passed down through generations. Learn moral lessons and cultural values.',
-      );
-    } else if (command.contains('traditional music') ||
-        command.contains('buganda music')) {
-      ttsService.speak(
-        'Traditional Buganda Music collection showcases royal drum music, traditional instruments, and folk songs from the kingdom\'s rich musical heritage.',
-      );
-    } else if (command.contains('kampala guide') ||
-        command.contains('city guide')) {
-      ttsService.speak(
-        'Kampala City Guide provides comprehensive information about landmarks, markets, transportation, and cultural sites in Uganda\'s vibrant capital.',
-      );
-    } else if (command.contains('culture guide') ||
-        command.contains('traditions')) {
-      ttsService.speak(
-        'Buganda Culture Guide explores traditions, customs, and social practices that have shaped the kingdom for centuries.',
-      );
+  void _handleListeningError() {
+    _consecutiveErrors++;
+    
+    if (_consecutiveErrors >= _maxConsecutiveErrors) {
+      debugPrint('Too many consecutive errors, stopping voice recognition');
+      stopContinuousListening();
+      
+      // Try to reinitialize after a delay
+      Timer(const Duration(seconds: 5), () async {
+        _consecutiveErrors = 0;
+        await initialize();
+        if (_isInitialized) {
+          await startContinuousListening();
+        }
+      });
     } else {
-      // Unknown command - provide helpful feedback
-      ttsService.speak(
-        'Command not recognized. Say "voice commands" to hear available options.',
-      );
+      _scheduleRestart();
     }
   }
 
-  void _speakGlobalVoiceCommands(TTSService ttsService) {
-    ttsService.speak('''
-Available global voice commands:
+  void _scheduleRestart() {
+    _restartTimer?.cancel();
+    _restartTimer = Timer(const Duration(milliseconds: 1000), () async {
+      if (!_isListening && !_isProcessingCommand) {
+        await startListening();
+      }
+    });
+  }
+
+  Future<void> _processVoiceCommand(String command) async {
+    if (_isProcessingCommand || command.isEmpty) return;
+    
+    _isProcessingCommand = true;
+    
+    try {
+      debugPrint('Processing voice command: $command');
+      final ttsService = getIt<TTSService>();
+      final navigationService = getIt<NavigationService>();
+
+      // Stop current TTS to prevent overlapping speech
+      await ttsService.stop();
+      
+      // Wait a brief moment to ensure TTS has stopped
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Enhanced navigation commands with multiple variations
+      if (_isNavigationCommand(command, ['home', 'go home', 'main screen', 'main menu', 'start screen'])) {
+        navigationService.navigateToHome();
+        await ttsService.speak('Navigating to home screen');
+      } 
+      else if (_isNavigationCommand(command, ['map', 'show map', 'open map', 'view map', 'location', 'navigation'])) {
+        navigationService.navigateToMap();
+        await ttsService.speak('Opening map screen');
+      } 
+      else if (_isNavigationCommand(command, ['discover', 'tours', 'show tours', 'browse tours', 'find tours', 'explore'])) {
+        navigationService.navigateToDiscover();
+        await ttsService.speak('Opening discover screen');
+      } 
+      else if (_isNavigationCommand(command, ['downloads', 'offline', 'my downloads', 'saved content', 'offline content'])) {
+        navigationService.navigateToDownloads();
+        await ttsService.speak('Opening downloads screen');
+      } 
+      else if (_isNavigationCommand(command, ['help', 'support', 'get help', 'assistance', 'help me'])) {
+        navigationService.navigateToHelpSupport();
+        await ttsService.speak('Opening help and support screen');
+      }
+      // Enhanced location and map commands
+      else if (_isNavigationCommand(command, ['where am i', 'my location', 'current location', 'find me'])) {
+        await ttsService.speak('Getting your current location');
+      }
+      else if (_isNavigationCommand(command, ['find places', 'nearby places', 'what is nearby', 'places around me'])) {
+        await ttsService.speak('Searching for nearby places');
+      }
+      else if (_isNavigationCommand(command, ['find hotels', 'nearby hotels', 'hotels around me', 'accommodation'])) {
+        await ttsService.speak('Searching for nearby hotels');
+      }
+      else if (_isNavigationCommand(command, ['find restaurants', 'nearby restaurants', 'food places', 'dining options'])) {
+        await ttsService.speak('Searching for nearby restaurants');
+      }
+      else if (_isNavigationCommand(command, ['find markets', 'nearby markets', 'shopping places', 'market places'])) {
+        await ttsService.speak('Searching for nearby markets');
+      }
+      else if (_isNavigationCommand(command, ['find tours', 'nearby tours', 'tour guides', 'guided tours'])) {
+        await ttsService.speak('Searching for nearby tours');
+      }
+      // Zoom and map control commands
+      else if (_isNavigationCommand(command, ['zoom in', 'closer', 'zoom closer'])) {
+        await ttsService.speak('Zooming in');
+      }
+      else if (_isNavigationCommand(command, ['zoom out', 'farther', 'zoom farther'])) {
+        await ttsService.speak('Zooming out');
+      }
+      // Voice control commands
+      else if (_isNavigationCommand(command, ['voice commands', 'available commands', 'help commands', 'what can i say'])) {
+        await _speakGlobalVoiceCommands(ttsService);
+      }
+      else if (_isNavigationCommand(command, ['repeat', 'say again', 'repeat that'])) {
+        await ttsService.speak('Repeating last information');
+      }
+      else if (_isNavigationCommand(command, ['stop talking', 'be quiet', 'silence'])) {
+        await ttsService.stop();
+      }
+      // Buganda-specific content commands
+      else if (_isNavigationCommand(command, ['kasubi', 'kasubi tombs', 'royal tombs'])) {
+        await _speakBugandaLocation(ttsService, 'kasubi');
+      }
+      else if (_isNavigationCommand(command, ['namugongo', 'martyrs', 'martyrs shrine'])) {
+        await _speakBugandaLocation(ttsService, 'namugongo');
+      }
+      else if (_isNavigationCommand(command, ['palace', 'lubiri', 'kabaka palace'])) {
+        await _speakBugandaLocation(ttsService, 'palace');
+      }
+      else if (_isNavigationCommand(command, ['mengo', 'mengo hill'])) {
+        await _speakBugandaLocation(ttsService, 'mengo');
+      }
+      else if (_isNavigationCommand(command, ['lake victoria', 'lake', 'victoria'])) {
+        await _speakBugandaLocation(ttsService, 'lake');
+      }
+      else {
+        // Provide helpful feedback for unrecognized commands
+        await ttsService.speak('Command not recognized. Say "voice commands" to hear available options.');
+      }
+    } catch (e) {
+      debugPrint('Error processing voice command: $e');
+    } finally {
+      _isProcessingCommand = false;
+      
+      // Brief delay before allowing new commands to prevent rapid-fire commands
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+  }
+
+  bool _isNavigationCommand(String command, List<String> triggers) {
+    return triggers.any((trigger) => command.contains(trigger));
+  }
+
+  Future<void> _speakGlobalVoiceCommands(TTSService ttsService) async {
+    await ttsService.speak('''
+Available voice commands:
 Navigation: "Go home", "Open map", "Show tours", "Downloads", "Get help"
-Map controls: "Zoom in", "Zoom out", "Where am I", "Move north/south/east/west"
-General: "Go back", "Voice commands", "Quick actions"
-Say any of these commands from any screen to navigate or control the app.
+Map features: "Find places", "Find hotels", "Find restaurants", "Find markets", "Find tours"
+Map controls: "Zoom in", "Zoom out", "Where am I"
+Buganda locations: "Kasubi tombs", "Namugongo shrine", "Lubiri palace", "Mengo hill", "Lake Victoria"
+Voice control: "Voice commands", "Repeat", "Stop talking"
+Say any of these commands clearly for navigation and control.
 ''');
   }
 
-  // Add more command processing as needed
+  Future<void> _speakBugandaLocation(TTSService ttsService, String location) async {
+    String description = '';
+    
+    switch (location) {
+      case 'kasubi':
+        description = 'Kasubi Tombs: The sacred burial site of Buganda kings, featuring traditional architecture and deep cultural significance. A UNESCO World Heritage site.';
+        break;
+      case 'namugongo':
+        description = 'Namugongo Martyrs Shrine: A major pilgrimage site commemorating 45 Christian martyrs, featuring beautiful architecture and peaceful gardens.';
+        break;
+      case 'palace':
+        description = 'Lubiri Palace: The magnificent residence of the Kabaka of Buganda, combining traditional African architecture with modern amenities.';
+        break;
+      case 'mengo':
+        description = 'Mengo Hill: The traditional heart of Buganda kingdom, offering panoramic views of Kampala and centuries of royal history.';
+        break;
+      case 'lake':
+        description = 'Lake Victoria: Africa\'s largest lake, offering stunning views, fishing villages, boat tours, and spectacular sunsets.';
+        break;
+    }
+    
+    await ttsService.speak(description);
+  }
 
   @override
   void dispose() {

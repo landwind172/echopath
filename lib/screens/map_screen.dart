@@ -30,6 +30,101 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _lastTappedLocation;
   bool _isSearchingNearby = false;
   final List<String> _recentCommands = [];
+  String _currentSearchType = '';
+
+  // Enhanced location data for Buganda, Uganda
+  final List<Map<String, dynamic>> _bugandaPlaces = [
+    {
+      'name': 'Kasubi Tombs',
+      'type': 'historical',
+      'position': const LatLng(0.3476, 32.5825),
+      'description': 'UNESCO World Heritage site and royal burial grounds of Buganda kings',
+      'category': 'Historical Site',
+      'rating': 4.5,
+      'features': ['UNESCO Heritage', 'Royal Tombs', 'Traditional Architecture', 'Cultural Tours']
+    },
+    {
+      'name': 'Namugongo Martyrs Shrine',
+      'type': 'religious',
+      'position': const LatLng(0.3751, 32.6532),
+      'description': 'Major pilgrimage site commemorating Christian martyrs',
+      'category': 'Religious Site',
+      'rating': 4.7,
+      'features': ['Pilgrimage Site', 'Religious Tours', 'Historical Significance', 'Annual Celebrations']
+    },
+    {
+      'name': 'Lubiri Palace',
+      'type': 'historical',
+      'position': const LatLng(0.3011, 32.5511),
+      'description': 'Official residence of the Kabaka of Buganda',
+      'category': 'Royal Palace',
+      'rating': 4.3,
+      'features': ['Royal Residence', 'Traditional Architecture', 'Cultural Heritage', 'Guided Tours']
+    },
+    {
+      'name': 'Serena Hotel Kampala',
+      'type': 'hotel',
+      'position': const LatLng(0.3136, 32.5811),
+      'description': 'Luxury hotel in the heart of Kampala',
+      'category': 'Luxury Hotel',
+      'rating': 4.6,
+      'features': ['5-Star Service', 'Conference Facilities', 'Fine Dining', 'City Views']
+    },
+    {
+      'name': 'Sheraton Kampala Hotel',
+      'type': 'hotel',
+      'position': const LatLng(0.3176, 32.5856),
+      'description': 'International hotel with modern amenities',
+      'category': 'Business Hotel',
+      'rating': 4.4,
+      'features': ['Business Center', 'Pool', 'Multiple Restaurants', 'Event Spaces']
+    },
+    {
+      'name': 'Owino Market',
+      'type': 'market',
+      'position': const LatLng(0.3136, 32.5736),
+      'description': 'Largest market in East Africa with diverse goods',
+      'category': 'Traditional Market',
+      'rating': 4.0,
+      'features': ['Local Goods', 'Traditional Crafts', 'Fresh Produce', 'Cultural Experience']
+    },
+    {
+      'name': 'Nakasero Market',
+      'type': 'market',
+      'position': const LatLng(0.3186, 32.5811),
+      'description': 'Fresh produce market with local fruits and vegetables',
+      'category': 'Fresh Market',
+      'rating': 4.2,
+      'features': ['Fresh Produce', 'Local Fruits', 'Organic Options', 'Daily Fresh Items']
+    },
+    {
+      'name': 'Fang Fang Restaurant',
+      'type': 'restaurant',
+      'position': const LatLng(0.3156, 32.5831),
+      'description': 'Popular Chinese restaurant in Kampala',
+      'category': 'Chinese Cuisine',
+      'rating': 4.3,
+      'features': ['Authentic Chinese', 'Vegetarian Options', 'Takeaway Available', 'Family Friendly']
+    },
+    {
+      'name': 'Cafe Javas',
+      'type': 'restaurant',
+      'position': const LatLng(0.3166, 32.5841),
+      'description': 'Local coffee chain with Ugandan specialties',
+      'category': 'Cafe & Restaurant',
+      'rating': 4.1,
+      'features': ['Local Coffee', 'Ugandan Cuisine', 'Free WiFi', 'Multiple Locations']
+    },
+    {
+      'name': 'Ndere Cultural Centre',
+      'type': 'tour',
+      'position': const LatLng(0.3456, 32.6123),
+      'description': 'Cultural center showcasing traditional music and dance',
+      'category': 'Cultural Tours',
+      'rating': 4.5,
+      'features': ['Traditional Performances', 'Cultural Workshops', 'Music Shows', 'Dance Lessons']
+    },
+  ];
 
   @override
   void initState() {
@@ -49,7 +144,6 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _onVoiceCommandReceived() {
-    // Check if widget is still mounted before accessing context
     if (!mounted) return;
 
     try {
@@ -62,36 +156,31 @@ class _MapScreenState extends State<MapScreen> {
         voiceProvider.clearLastCommand();
       }
     } catch (e) {
-      // Ignore errors if context is no longer available
       debugPrint('Voice command error: $e');
     }
   }
 
   Future<void> _initializeMap() async {
-    // Get the provider before any async operations
     final locationProvider = Provider.of<LocationProvider>(
       context,
       listen: false,
     );
 
     await _ttsService.speak(
-      'Interactive map screen loaded. Voice navigation is enabled. You can say "help" for available commands, "where am I" for your location, "zoom in" or "zoom out" to control the map, "find nearby places" to search, or "toggle voice mode" to enable or disable voice feedback.',
+      'Interactive map screen loaded. Voice navigation is active. You can say "find hotels", "find restaurants", "find markets", "find tours", or "where am I" for location services. Say "help" for all available commands.',
     );
 
-    // Check if widget is still mounted before proceeding
     if (!mounted) return;
 
-    // Get current location if not available
     if (locationProvider.currentPosition == null) {
       await locationProvider.getCurrentLocation();
     }
 
-    // Add current location marker and center map
     if (locationProvider.currentPosition != null) {
       _addCurrentLocationMarker(locationProvider.currentPosition!);
       _centerMapOnCurrentLocation(locationProvider.currentPosition!);
+      _addBugandaPlaceMarkers();
 
-      // Speak current location info
       final position = locationProvider.currentPosition!;
       await _speakLocationDetails(position, 'Your current location');
     } else {
@@ -99,8 +188,62 @@ class _MapScreenState extends State<MapScreen> {
         'Unable to get your current location. Please check location permissions and try again.',
       );
     }
+  }
 
-    // No automatic transition for main screens - user can navigate manually
+  void _addBugandaPlaceMarkers() {
+    if (!mounted) return;
+    
+    setState(() {
+      for (final place in _bugandaPlaces) {
+        _markers.add(
+          Marker(
+            markerId: MarkerId(place['name']),
+            position: place['position'],
+            infoWindow: InfoWindow(
+              title: place['name'],
+              snippet: '${place['category']} - Rating: ${place['rating']}/5',
+            ),
+            icon: _getMarkerIcon(place['type']),
+            onTap: () => _onPlaceMarkerTapped(place),
+          ),
+        );
+      }
+    });
+  }
+
+  BitmapDescriptor _getMarkerIcon(String type) {
+    switch (type) {
+      case 'hotel':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      case 'restaurant':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+      case 'market':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+      case 'tour':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueMagenta);
+      case 'historical':
+      case 'religious':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+      default:
+        return BitmapDescriptor.defaultMarker;
+    }
+  }
+
+  void _onPlaceMarkerTapped(Map<String, dynamic> place) {
+    _speakPlaceDetails(place);
+  }
+
+  Future<void> _speakPlaceDetails(Map<String, dynamic> place) async {
+    final features = (place['features'] as List<String>).join(', ');
+    
+    await _ttsService.speak('''
+${place['name']}. 
+${place['description']}
+Category: ${place['category']}. 
+Rating: ${place['rating']} out of 5 stars.
+Features: $features.
+Say "navigate to ${place['name']}" to get directions.
+''');
   }
 
   void _addCurrentLocationMarker(position) {
@@ -142,55 +285,46 @@ class _MapScreenState extends State<MapScreen> {
       context,
       listen: false,
     );
-    final address = await _getAddressFromCoordinates(
-      position.latitude,
-      position.longitude,
-    );
 
     String locationInfo =
         '$locationName is at coordinates ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
 
-    if (address.isNotEmpty) {
-      locationInfo += '. Address: $address';
-    }
-
-    if (locationProvider.currentPosition != null) {
-      final distance = await locationProvider.getDistanceTo(
-        position.latitude,
-        position.longitude,
-      );
-      final bearing = await locationProvider.getBearingTo(
-        position.latitude,
-        position.longitude,
-      );
-      final direction = _getDirectionFromBearing(bearing);
-
-      if (distance > 0) {
-        final distanceText = distance < 1000
-            ? '${distance.toStringAsFixed(0)} meters'
-            : '${(distance / 1000).toStringAsFixed(1)} kilometers';
-        locationInfo +=
-            '. Distance: $distanceText $direction from your current position';
-      }
+    // Find nearby places
+    final nearbyPlaces = _findNearbyPlaces(position);
+    if (nearbyPlaces.isNotEmpty) {
+      locationInfo += '. Nearby places include: ${nearbyPlaces.take(3).map((p) => p['name']).join(', ')}';
     }
 
     await _ttsService.speak(locationInfo);
   }
 
-  Future<String> _getAddressFromCoordinates(double lat, double lng) async {
-    // Placeholder for geocoding - in a real app, you'd use a geocoding service
-    // For now, return a simple description based on coordinates
-    if (lat > 0) {
-      return 'Northern Hemisphere';
-    } else {
-      return 'Southern Hemisphere';
+  List<Map<String, dynamic>> _findNearbyPlaces(Position position, {double radiusKm = 2.0}) {
+    final nearby = <Map<String, dynamic>>[];
+    
+    for (final place in _bugandaPlaces) {
+      final placePosition = place['position'] as LatLng;
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        placePosition.latitude,
+        placePosition.longitude,
+      );
+      
+      if (distance <= radiusKm * 1000) {
+        final placeWithDistance = Map<String, dynamic>.from(place);
+        placeWithDistance['distance'] = distance;
+        nearby.add(placeWithDistance);
+      }
     }
+    
+    // Sort by distance
+    nearby.sort((a, b) => (a['distance'] as double).compareTo(b['distance'] as double));
+    return nearby;
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
-    // Move camera to current location if available
     final locationProvider = Provider.of<LocationProvider>(
       context,
       listen: false,
@@ -225,13 +359,31 @@ class _MapScreenState extends State<MapScreen> {
       final distanceInKm = (distance / 1000).toStringAsFixed(1);
       final direction = _getDirectionFromBearing(bearing);
 
-      await _ttsService.speak(
-        'Location selected. Distance: $distanceInKm kilometers $direction from your current position. Coordinates: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+      // Check for nearby places at tapped location
+      final nearbyPlaces = _findNearbyPlaces(
+        Position(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        ),
+        radiusKm: 0.5,
       );
-    } else {
-      await _ttsService.speak(
-        'Location selected. Coordinates: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}. Enable location services to get distance information.',
-      );
+
+      String locationInfo = 'Location selected. Distance: $distanceInKm kilometers $direction from your current position.';
+      
+      if (nearbyPlaces.isNotEmpty) {
+        final closestPlace = nearbyPlaces.first;
+        locationInfo += ' Closest place: ${closestPlace['name']}, a ${closestPlace['category']}.';
+      }
+
+      await _ttsService.speak(locationInfo);
     }
   }
 
@@ -245,6 +397,121 @@ class _MapScreenState extends State<MapScreen> {
     if (bearing >= 247.5 && bearing < 292.5) return 'west';
     if (bearing >= 292.5 && bearing < 337.5) return 'northwest';
     return 'unknown direction';
+  }
+
+  Future<void> _searchPlacesByType(String type) async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isSearchingNearby = true;
+      _currentSearchType = type;
+    });
+
+    final filteredPlaces = _bugandaPlaces.where((place) => place['type'] == type).toList();
+    
+    if (filteredPlaces.isNotEmpty) {
+      // Focus map on the first result
+      final firstPlace = filteredPlaces.first;
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(firstPlace['position'], 14.0),
+      );
+      
+      // Speak results
+      final placeNames = filteredPlaces.map((p) => p['name']).join(', ');
+      await _ttsService.speak(
+        'Found ${filteredPlaces.length} ${type}s: $placeNames. Tap on map markers for details.',
+      );
+    } else {
+      await _ttsService.speak('No ${type}s found in the current area.');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSearchingNearby = false;
+      });
+    }
+  }
+
+  void _handleMapVoiceCommands(String command) {
+    final lowerCommand = command.toLowerCase();
+    _recentCommands.insert(0, command);
+    if (_recentCommands.length > 5) {
+      _recentCommands.removeLast();
+    }
+
+    // Location commands
+    if (lowerCommand.contains('where am i') ||
+        lowerCommand.contains('my location') ||
+        lowerCommand.contains('current location')) {
+      _goToCurrentLocation();
+    }
+    // Search commands
+    else if (lowerCommand.contains('find hotels') ||
+        lowerCommand.contains('hotels')) {
+      _searchPlacesByType('hotel');
+    } else if (lowerCommand.contains('find restaurants') ||
+        lowerCommand.contains('restaurants') ||
+        lowerCommand.contains('food')) {
+      _searchPlacesByType('restaurant');
+    } else if (lowerCommand.contains('find markets') ||
+        lowerCommand.contains('markets') ||
+        lowerCommand.contains('shopping')) {
+      _searchPlacesByType('market');
+    } else if (lowerCommand.contains('find tours') ||
+        lowerCommand.contains('tours') ||
+        lowerCommand.contains('attractions')) {
+      _searchPlacesByType('tour');
+    } else if (lowerCommand.contains('find places') ||
+        lowerCommand.contains('nearby places')) {
+      _searchAllNearbyPlaces();
+    }
+    // Zoom commands
+    else if (lowerCommand.contains('zoom in') ||
+        lowerCommand.contains('closer')) {
+      _zoomIn();
+    } else if (lowerCommand.contains('zoom out') ||
+        lowerCommand.contains('farther')) {
+      _zoomOut();
+    }
+    // Navigation commands
+    else if (lowerCommand.contains('start navigation') ||
+        lowerCommand.contains('navigate')) {
+      _startNavigation();
+    } else if (lowerCommand.contains('stop navigation') ||
+        lowerCommand.contains('end navigation')) {
+      _stopNavigation();
+    }
+    // Help and info commands
+    else if (lowerCommand.contains('help') ||
+        lowerCommand.contains('commands')) {
+      _speakHelpCommands();
+    } else if (lowerCommand.contains('map info')) {
+      _speakMapInfo();
+    }
+  }
+
+  Future<void> _searchAllNearbyPlaces() async {
+    final locationProvider = Provider.of<LocationProvider>(
+      context,
+      listen: false,
+    );
+    
+    if (locationProvider.currentPosition != null) {
+      final nearbyPlaces = _findNearbyPlaces(locationProvider.currentPosition!);
+      
+      if (nearbyPlaces.isNotEmpty) {
+        final placesList = nearbyPlaces.take(5).map((place) {
+          final distance = (place['distance'] as double / 1000).toStringAsFixed(1);
+          return '${place['name']}, ${distance} kilometers away';
+        }).join('. ');
+        
+        await _ttsService.speak(
+          'Found ${nearbyPlaces.length} nearby places: $placesList',
+        );
+      } else {
+        await _ttsService.speak('No places found nearby.');
+      }
+    }
   }
 
   void _zoomOut() {
@@ -265,48 +532,6 @@ class _MapScreenState extends State<MapScreen> {
         'Zooming in. Current zoom level: ${_currentZoom.toStringAsFixed(1)}',
       );
     }
-  }
-
-  void _zoomToLevel(double zoomLevel) {
-    _mapController?.animateCamera(CameraUpdate.zoomTo(zoomLevel));
-    _currentZoom = zoomLevel;
-    if (_isVoiceModeEnabled) {
-      _ttsService.speak('Zoomed to level ${zoomLevel.toStringAsFixed(1)}');
-    }
-  }
-
-  void _goToLastTappedLocation() {
-    if (_lastTappedLocation != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(_lastTappedLocation!),
-      );
-      if (_isVoiceModeEnabled) {
-        _ttsService.speak('Moving to last tapped location');
-      }
-    } else {
-      if (_isVoiceModeEnabled) {
-        _ttsService.speak('No previous location to go to');
-      }
-    }
-  }
-
-  void _searchNearbyPlaces() {
-    if (!mounted) return;
-    setState(() {
-      _isSearchingNearby = true;
-    });
-    if (_isVoiceModeEnabled) {
-      _ttsService.speak(
-        'Searching for nearby places. This feature is coming soon.',
-      );
-    }
-    // Simulate search completion
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _isSearchingNearby = false;
-      });
-    });
   }
 
   void _startNavigation() {
@@ -331,37 +556,17 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _toggleVoiceMode() {
-    if (!mounted) return;
-    setState(() {
-      _isVoiceModeEnabled = !_isVoiceModeEnabled;
-    });
-    _ttsService.speak(
-      _isVoiceModeEnabled ? 'Voice mode enabled' : 'Voice mode disabled',
-    );
-  }
-
   void _speakHelpCommands() {
     final helpText = '''
-Available voice commands:
-Location: "Where am I", "Last location"
-Zoom: "Zoom in", "Zoom out", "Zoom to street level", "Zoom to city level"
-Navigation: "Find nearby places", "Start navigation", "Stop navigation"
-Map control: "Toggle voice mode", "Clear markers", "Map info"
-Directions: "Move north", "Move south", "Move east", "Move west"
-Recent: "Repeat command", "Command history"
+Available map voice commands:
+Location: "Where am I"
+Search: "Find hotels", "Find restaurants", "Find markets", "Find tours", "Find places"
+Zoom: "Zoom in", "Zoom out"
+Navigation: "Start navigation", "Stop navigation"
+Information: "Map info", "Help commands"
+All places include detailed information and ratings.
 ''';
     _ttsService.speak(helpText);
-  }
-
-  void _clearMarkers() {
-    if (!mounted) return;
-    setState(() {
-      _markers.clear();
-    });
-    if (_isVoiceModeEnabled) {
-      _ttsService.speak('All markers cleared');
-    }
   }
 
   void _speakMapInfo() {
@@ -379,75 +584,10 @@ Recent: "Repeat command", "Command history"
     }
 
     info += 'Voice mode is ${_isVoiceModeEnabled ? 'enabled' : 'disabled'}. ';
-    info += 'Navigation is ${_isNavigating ? 'active' : 'inactive'}.';
+    info += 'Navigation is ${_isNavigating ? 'active' : 'inactive'}. ';
+    info += '${_markers.length} places are marked on the map.';
 
     _ttsService.speak(info);
-  }
-
-  void _moveMapDirection(String direction) {
-    if (_mapController == null) return;
-
-    // Use a simple offset approach instead of getting visible region
-    double latOffset = 0.01;
-    double lngOffset = 0.01;
-
-    switch (direction.toLowerCase()) {
-      case 'north':
-        latOffset = 0.01;
-        lngOffset = 0.0;
-        break;
-      case 'south':
-        latOffset = -0.01;
-        lngOffset = 0.0;
-        break;
-      case 'east':
-        latOffset = 0.0;
-        lngOffset = 0.01;
-        break;
-      case 'west':
-        latOffset = 0.0;
-        lngOffset = -0.01;
-        break;
-    }
-
-    // Get current camera position and move in the specified direction
-    _mapController!.getVisibleRegion().then((bounds) {
-      final center = LatLng(
-        (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
-        (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
-      );
-
-      final newPosition = LatLng(
-        center.latitude + latOffset,
-        center.longitude + lngOffset,
-      );
-      _mapController!.animateCamera(CameraUpdate.newLatLng(newPosition));
-
-      if (_isVoiceModeEnabled) {
-        _ttsService.speak('Moving map $direction');
-      }
-    });
-  }
-
-  void _repeatLastCommand() {
-    if (_recentCommands.isNotEmpty) {
-      _ttsService.speak('Last command was: ${_recentCommands.first}');
-    } else {
-      _ttsService.speak('No recent commands to repeat');
-    }
-  }
-
-  void _speakCommandHistory() {
-    if (_recentCommands.isEmpty) {
-      _ttsService.speak('No command history available');
-      return;
-    }
-
-    String history = 'Recent commands: ';
-    for (int i = 0; i < _recentCommands.length && i < 3; i++) {
-      history += '${i + 1}. ${_recentCommands[i]}. ';
-    }
-    _ttsService.speak(history);
   }
 
   void _goToCurrentLocation() {
@@ -465,90 +605,8 @@ Recent: "Repeat command", "Command history"
     }
   }
 
-  void _handleMapVoiceCommands(String command) {
-    final lowerCommand = command.toLowerCase();
-    _recentCommands.insert(0, command);
-    if (_recentCommands.length > 5) {
-      _recentCommands.removeLast();
-    }
-
-    // Location commands
-    if (lowerCommand.contains('where am i') ||
-        lowerCommand.contains('my location') ||
-        lowerCommand.contains('current location')) {
-      _goToCurrentLocation();
-    } else if (lowerCommand.contains('last location') ||
-        lowerCommand.contains('previous location')) {
-      _goToLastTappedLocation();
-    }
-    // Zoom commands
-    else if (lowerCommand.contains('zoom in') ||
-        lowerCommand.contains('closer')) {
-      _zoomIn();
-    } else if (lowerCommand.contains('zoom out') ||
-        lowerCommand.contains('farther')) {
-      _zoomOut();
-    } else if (lowerCommand.contains('zoom to street') ||
-        lowerCommand.contains('street level')) {
-      _zoomToLevel(18.0);
-    } else if (lowerCommand.contains('zoom to city') ||
-        lowerCommand.contains('city level')) {
-      _zoomToLevel(12.0);
-    } else if (lowerCommand.contains('zoom to country') ||
-        lowerCommand.contains('country level')) {
-      _zoomToLevel(6.0);
-    }
-    // Navigation commands
-    else if (lowerCommand.contains('find nearby') ||
-        lowerCommand.contains('nearby places')) {
-      _searchNearbyPlaces();
-    } else if (lowerCommand.contains('start navigation') ||
-        lowerCommand.contains('navigate')) {
-      _startNavigation();
-    } else if (lowerCommand.contains('stop navigation') ||
-        lowerCommand.contains('end navigation')) {
-      _stopNavigation();
-    }
-    // Map control commands
-    else if (lowerCommand.contains('toggle voice') ||
-        lowerCommand.contains('voice mode')) {
-      _toggleVoiceMode();
-    } else if (lowerCommand.contains('help') ||
-        lowerCommand.contains('commands')) {
-      _speakHelpCommands();
-    } else if (lowerCommand.contains('clear markers') ||
-        lowerCommand.contains('remove markers')) {
-      _clearMarkers();
-    } else if (lowerCommand.contains('map info') ||
-        lowerCommand.contains('map details')) {
-      _speakMapInfo();
-    }
-    // Direction commands
-    else if (lowerCommand.contains('move north') ||
-        lowerCommand.contains('go north')) {
-      _moveMapDirection('north');
-    } else if (lowerCommand.contains('move south') ||
-        lowerCommand.contains('go south')) {
-      _moveMapDirection('south');
-    } else if (lowerCommand.contains('move east') ||
-        lowerCommand.contains('go east')) {
-      _moveMapDirection('east');
-    } else if (lowerCommand.contains('move west') ||
-        lowerCommand.contains('go west')) {
-      _moveMapDirection('west');
-    }
-    // Recent commands
-    else if (lowerCommand.contains('repeat command') ||
-        lowerCommand.contains('last command')) {
-      _repeatLastCommand();
-    } else if (lowerCommand.contains('command history')) {
-      _speakCommandHistory();
-    }
-  }
-
   @override
   void dispose() {
-    // Clean up voice navigation listener
     try {
       final voiceProvider = Provider.of<VoiceNavigationProvider>(
         context,
@@ -565,7 +623,7 @@ Recent: "Repeat command", "Command history"
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map'),
+        title: const Text('Interactive Map'),
         actions: const [VoiceStatusWidget()],
       ),
       body: Stack(
@@ -581,10 +639,7 @@ Recent: "Repeat command", "Command history"
                           locationProvider.currentPosition!.latitude,
                           locationProvider.currentPosition!.longitude,
                         )
-                      : const LatLng(
-                          37.7749,
-                          -122.4194,
-                        ), // Default to San Francisco
+                      : const LatLng(0.3136, 32.5811), // Kampala, Uganda
                   zoom: 15.0,
                 ),
                 markers: _markers,
@@ -597,6 +652,8 @@ Recent: "Repeat command", "Command history"
               );
             },
           ),
+          
+          // Enhanced voice command info panel
           Positioned(
             top: 16,
             left: 16,
@@ -620,13 +677,13 @@ Recent: "Repeat command", "Command history"
                   Row(
                     children: [
                       Icon(
-                        Icons.info_outline,
+                        Icons.voice_chat,
                         color: Theme.of(context).primaryColor,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Voice Commands',
+                        'Voice Commands Active',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -671,13 +728,26 @@ Recent: "Repeat command", "Command history"
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Say: "Help" for all commands, "Where am I", "Zoom in/out", "Find nearby places", "Toggle voice mode"',
+                    'Say: "Find hotels", "Find restaurants", "Find markets", "Find tours", "Where am I", "Help"',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (_currentSearchType.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Currently showing: ${_currentSearchType}s',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
+          
+          // Map controls
           Positioned(
             right: 16,
             bottom: 100,
@@ -687,6 +757,8 @@ Recent: "Repeat command", "Command history"
               onCurrentLocation: _goToCurrentLocation,
             ),
           ),
+          
+          // Navigation panel
           if (_isNavigating)
             Positioned(
               bottom: 100,
@@ -724,6 +796,8 @@ Recent: "Repeat command", "Command history"
                 ),
               ),
             ),
+          
+          // Search indicator
           if (_isSearchingNearby)
             Positioned(
               top: 100,
@@ -756,7 +830,7 @@ Recent: "Repeat command", "Command history"
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Searching nearby places...',
+                      'Searching for ${_currentSearchType}s...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),

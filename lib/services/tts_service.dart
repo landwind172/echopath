@@ -9,6 +9,8 @@ class TTSService extends ChangeNotifier {
   double _speechRate = AppConstants.defaultSpeechRate;
   double _pitch = AppConstants.defaultPitch;
   String _language = AppConstants.defaultLanguage;
+  final List<String> _speechQueue = [];
+  bool _isProcessingQueue = false;
 
   bool get isInitialized => _isInitialized;
   bool get isSpeaking => _isSpeaking;
@@ -18,10 +20,17 @@ class TTSService extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
+      // Configure TTS for optimal performance
       await _flutterTts.setLanguage(_language);
       await _flutterTts.setPitch(_pitch);
       await _flutterTts.setSpeechRate(_speechRate);
+      await _flutterTts.setVolume(1.0);
       
+      // Set TTS engine preferences for better quality
+      await _flutterTts.setSharedInstance(true);
+      await _flutterTts.awaitSpeakCompletion(true);
+      
+      // Configure handlers for smooth operation
       _flutterTts.setStartHandler(() {
         _isSpeaking = true;
         notifyListeners();
@@ -30,16 +39,24 @@ class TTSService extends ChangeNotifier {
       _flutterTts.setCompletionHandler(() {
         _isSpeaking = false;
         notifyListeners();
+        _processNextInQueue();
       });
 
       _flutterTts.setErrorHandler((msg) {
         _isSpeaking = false;
         notifyListeners();
         debugPrint('TTS Error: $msg');
+        _processNextInQueue();
+      });
+
+      _flutterTts.setCancelHandler(() {
+        _isSpeaking = false;
+        notifyListeners();
       });
 
       _isInitialized = true;
       notifyListeners();
+      debugPrint('TTS service initialized successfully');
     } catch (e) {
       debugPrint('TTS initialization error: $e');
     }
@@ -48,17 +65,72 @@ class TTSService extends ChangeNotifier {
   Future<void> speak(String text) async {
     if (!_isInitialized || text.isEmpty) return;
 
+    // Clean and optimize text for speech
+    final cleanText = _cleanTextForSpeech(text);
+    
     try {
-      await _flutterTts.speak(text);
+      // Stop current speech and clear queue for immediate response
+      await stop();
+      await _flutterTts.speak(cleanText);
     } catch (e) {
       debugPrint('TTS speak error: $e');
+      // Retry once if there's an error
+      try {
+        await Future.delayed(const Duration(milliseconds: 100));
+        await _flutterTts.speak(cleanText);
+      } catch (retryError) {
+        debugPrint('TTS retry speak error: $retryError');
+      }
     }
+  }
+
+  Future<void> speakQueued(String text) async {
+    if (!_isInitialized || text.isEmpty) return;
+
+    final cleanText = _cleanTextForSpeech(text);
+    _speechQueue.add(cleanText);
+    
+    if (!_isProcessingQueue && !_isSpeaking) {
+      _processNextInQueue();
+    }
+  }
+
+  Future<void> _processNextInQueue() async {
+    if (_speechQueue.isEmpty || _isProcessingQueue) return;
+    
+    _isProcessingQueue = true;
+    
+    while (_speechQueue.isNotEmpty && _isInitialized) {
+      final text = _speechQueue.removeAt(0);
+      
+      try {
+        await _flutterTts.speak(text);
+        // Wait for completion before processing next item
+        while (_isSpeaking) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } catch (e) {
+        debugPrint('TTS queue processing error: $e');
+      }
+    }
+    
+    _isProcessingQueue = false;
+  }
+
+  String _cleanTextForSpeech(String text) {
+    // Remove excessive whitespace and clean up text for better speech
+    return text
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[^\w\s.,!?;:-]'), '')
+        .trim();
   }
 
   Future<void> stop() async {
     if (!_isInitialized) return;
 
     try {
+      _speechQueue.clear();
+      _isProcessingQueue = false;
       await _flutterTts.stop();
       _isSpeaking = false;
       notifyListeners();
@@ -111,5 +183,11 @@ class TTSService extends ChangeNotifier {
     } catch (e) {
       debugPrint('TTS set language error: $e');
     }
+  }
+
+  Future<void> speakWithPriority(String text) async {
+    // High priority speech that interrupts current speech
+    await stop();
+    await speak(text);
   }
 }

@@ -1,21 +1,16 @@
 class AppConstants {
   // Voice Commands
   static const List<String> navigationCommands = [
-    'go home',
-    'open home',
-    'navigate home',
-    'go to map',
-    'open map',
-    'show map',
-    'go to discover',
-    'open discover',
-    'show tours',
-    'go to downloads',
-    'open downloads',
-    'offline content',
-    'go to help',
-    'open help',
-    'get support',
+    // Home navigation
+    'go home', 'open home', 'navigate home', 'main screen', 'home screen',
+    // Map navigation  
+    'go to map', 'open map', 'show map', 'view map', 'location', 'navigation',
+    // Discover navigation
+    'go to discover', 'open discover', 'show tours', 'browse tours', 'find tours', 'explore',
+    // Downloads navigation
+    'go to downloads', 'open downloads', 'offline content', 'saved content', 'my downloads',
+    // Help navigation
+    'go to help', 'open help', 'get support', 'assistance', 'help me',
   ];
 
   static const List<String> playbackCommands = [
@@ -31,18 +26,18 @@ class AppConstants {
   ];
 
   static const List<String> mapCommands = [
-    'zoom in',
-    'zoom out',
-    'find location',
-    'where am i',
-    'navigate to',
-    'start navigation',
-    'stop navigation',
-    'nearby places',
+    // Location commands
+    'where am i', 'my location', 'current location', 'find me',
+    // Search commands
+    'find places', 'nearby places', 'find hotels', 'find restaurants', 'find markets', 'find tours',
+    // Zoom commands
+    'zoom in', 'zoom out', 'closer', 'farther',
+    // Navigation commands
+    'navigate to', 'start navigation', 'stop navigation', 'directions',
   ];
 
   // Audio Settings
-  static const double defaultSpeechRate = 0.5;
+  static const double defaultSpeechRate = 0.6; // Slightly faster for better responsiveness
   static const double defaultPitch = 1.0;
   static const String defaultLanguage = 'en-US';
 

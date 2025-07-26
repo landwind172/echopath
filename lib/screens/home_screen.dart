@@ -65,37 +65,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final lowerCommand = command.toLowerCase();
 
-    // Navigation commands
+    // Enhanced navigation commands with multiple variations
     if (lowerCommand.contains('map') ||
         lowerCommand.contains('show map') ||
-        lowerCommand.contains('open map')) {
+        lowerCommand.contains('open map') ||
+        lowerCommand.contains('view map') ||
+        lowerCommand.contains('go to map')) {
       Navigator.pushReplacementNamed(context, '/map');
-      _ttsService.speak('Navigating to map screen');
+      _ttsService.speakWithPriority('Opening interactive map with voice navigation');
     } else if (lowerCommand.contains('discover') ||
         lowerCommand.contains('tours') ||
-        lowerCommand.contains('show tours')) {
+        lowerCommand.contains('show tours') ||
+        lowerCommand.contains('browse tours') ||
+        lowerCommand.contains('find tours') ||
+        lowerCommand.contains('explore')) {
       Navigator.pushReplacementNamed(context, '/discover');
-      _ttsService.speak('Navigating to discover screen');
+      _ttsService.speakWithPriority('Opening discover tours with Buganda destinations');
     } else if (lowerCommand.contains('downloads') ||
         lowerCommand.contains('offline') ||
-        lowerCommand.contains('my downloads')) {
+        lowerCommand.contains('my downloads') ||
+        lowerCommand.contains('saved content') ||
+        lowerCommand.contains('offline content')) {
       Navigator.pushReplacementNamed(context, '/downloads');
-      _ttsService.speak('Navigating to downloads screen');
+      _ttsService.speakWithPriority('Opening offline library with saved content');
     } else if (lowerCommand.contains('help') ||
         lowerCommand.contains('support') ||
-        lowerCommand.contains('get help')) {
+        lowerCommand.contains('get help') ||
+        lowerCommand.contains('assistance') ||
+        lowerCommand.contains('help me')) {
       Navigator.pushReplacementNamed(context, '/help-support');
-      _ttsService.speak('Navigating to help and support screen');
+      _ttsService.speakWithPriority('Opening help and support with voice commands guide');
     }
     // Quick action commands
     else if (lowerCommand.contains('quick actions') ||
         lowerCommand.contains('actions')) {
-      _ttsService.speak(
+      _ttsService.speakWithPriority(
         'Quick actions are available: Map, Discover Tours, Downloads, and Help & Support',
       );
     } else if (lowerCommand.contains('recent tours') ||
         lowerCommand.contains('history')) {
-      _ttsService.speak(
+      _ttsService.speakWithPriority(
         'Recent tours section shows your recently played tours',
       );
     } else if (lowerCommand.contains('voice commands') ||
@@ -103,17 +112,34 @@ class _HomeScreenState extends State<HomeScreen> {
       _speakAvailableCommands();
     } else if (lowerCommand.contains('home') ||
         lowerCommand.contains('main screen')) {
-      _ttsService.speak('You are already on the home screen');
+      _ttsService.speakWithPriority('You are already on the home screen');
+    } else if (lowerCommand.contains('what can i do') ||
+        lowerCommand.contains('options') ||
+        lowerCommand.contains('features')) {
+      _speakHomeFeatures();
     }
   }
 
   void _speakAvailableCommands() {
     if (!mounted) return;
-    _ttsService.speak('''
+    _ttsService.speakWithPriority('''
 Available voice commands on home screen:
 Navigation: "Open map", "Show tours", "Downloads", "Get help"
-Information: "Quick actions", "Recent tours", "Voice commands"
-You can also use the quick action cards to navigate to different sections.
+Information: "Quick actions", "Recent tours", "What can I do"
+Features: All screens support voice navigation for seamless accessibility.
+You can speak naturally - the app understands multiple ways to say the same command.
+''');
+  }
+
+  void _speakHomeFeatures() {
+    if (!mounted) return;
+    _ttsService.speakWithPriority('''
+Echo Guide features:
+Interactive Map: Find hotels, restaurants, markets, and tours with voice commands.
+Discover Tours: Explore Buganda destinations with detailed audio descriptions.
+Offline Library: Access downloaded content without internet connection.
+Voice Navigation: Complete hands-free control across all screens.
+All features are designed for accessibility and ease of use.
 ''');
   }
 
@@ -132,8 +158,8 @@ You can also use the quick action cards to navigate to different sections.
 
   Future<void> _speakWelcomeMessage() async {
     if (!mounted) return;
-    await _ttsService.speak(
-      'Welcome to your Echo Guide home screen. Here you can access quick actions, view your recent tours, and navigate to different sections of the app using voice commands. Say "voice commands" to hear available options.',
+    await _ttsService.speakWithPriority(
+      'Welcome to Echo Guide home screen. Voice navigation is active and ready. You can say "open map" for interactive locations, "show tours" for Buganda destinations, "downloads" for offline content, or "get help" for assistance. Say "what can I do" to hear all features.',
     );
 
     // No automatic transition for main screens - user can navigate manually

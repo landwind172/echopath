@@ -25,8 +25,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 
   Future<void> _initializeScreen() async {
-    await _ttsService.speak(
-      'Help and Support screen loaded. Find answers to common questions, learn about voice commands, and get assistance with using Echo Guide.',
+    await _ttsService.speakWithPriority(
+      'Help and support loaded. Voice navigation active. Find answers to questions, learn voice commands, and get assistance. Say "voice commands" for complete list or browse help sections.',
     );
 
     // No automatic transition for main screens - user can navigate manually
@@ -271,32 +271,32 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 
   Future<void> _speakVoiceCommands() async {
-    await _ttsService.speak(
+    await _ttsService.speakWithPriority(
       'Voice commands are organized into categories: Navigation commands like go home, open map, show tours. Playback commands like play, pause, stop, next, previous. Map commands like where am I, zoom in, zoom out, find nearby places. You can use these commands from any screen.',
     );
   }
 
   Future<void> _speakGettingStarted() async {
-    await _ttsService.speak(
+    await _ttsService.speakWithPriority(
       'Getting started with Echo Guide: First, ensure location and microphone permissions are granted. Use voice commands or tap to navigate between screens. Download tours for offline use from the Discover screen. Use the map to explore locations with audio narration. Access your downloaded content from the Downloads screen.',
     );
   }
 
   Future<void> _speakAccessibilityFeatures() async {
-    await _ttsService.speak(
+    await _ttsService.speakWithPriority(
       'Echo Guide is designed with accessibility in mind. Features include: Full voice navigation between all screens, Text-to-speech for all content, Voice commands for all major functions, High contrast themes, Large text support, Screen reader compatibility, Offline content access, and Real-time audio narration for maps.',
     );
   }
 
   void _contactSupport() {
-    _ttsService.speak(
+    _ttsService.speakWithPriority(
       'Opening email support. You can send us your questions or issues.',
     );
     // Implement email support functionality
   }
 
   void _provideFeedback() {
-    _ttsService.speak(
+    _ttsService.speakWithPriority(
       'Opening feedback form. We value your input to improve Echo Guide.',
     );
     // Implement feedback functionality

@@ -12,7 +12,7 @@ class VoiceStatusWidget extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Show last command if available
+            // Show last command if available (shortened for better UI)
             if (voiceProvider.lastCommand.isNotEmpty)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -22,38 +22,88 @@ class VoiceStatusWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  voiceProvider.lastCommand,
+                  voiceProvider.lastCommand.length > 15 
+                      ? '${voiceProvider.lastCommand.substring(0, 15)}...'
+                      : voiceProvider.lastCommand,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-            // Voice toggle button
+            
+            // Enhanced voice toggle button with status indicator
             Padding(
-          padding: const EdgeInsets.only(right: 8.0),
-          child: IconButton(
-            onPressed: () => voiceProvider.toggleVoiceNavigation(),
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Icon(
-                voiceProvider.isVoiceNavigationEnabled
-                        ? (voiceProvider.isListening
-                              ? Icons.mic
-                              : Icons.mic_none)
-                    : Icons.mic_off,
-                key: ValueKey(voiceProvider.isVoiceNavigationEnabled),
-                color: voiceProvider.isVoiceNavigationEnabled
-                    ? (voiceProvider.isListening 
-                        ? Colors.red 
-                        : Theme.of(context).primaryColor)
-                    : Colors.grey,
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Stack(
+                children: [
+                  IconButton(
+                    onPressed: () => voiceProvider.toggleVoiceNavigation(),
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(
+                        voiceProvider.isVoiceNavigationEnabled
+                            ? (voiceProvider.isListening
+                                ? Icons.mic
+                                : Icons.mic_none)
+                            : Icons.mic_off,
+                        key: ValueKey('${voiceProvider.isVoiceNavigationEnabled}_${voiceProvider.isListening}'),
+                        color: voiceProvider.isVoiceNavigationEnabled
+                            ? (voiceProvider.isListening 
+                                ? Colors.green 
+                                : Theme.of(context).primaryColor)
+                            : Colors.grey,
+                        size: 24,
+                      ),
+                    ),
+                    tooltip: voiceProvider.isVoiceNavigationEnabled
+                        ? (voiceProvider.isListening 
+                            ? 'Voice navigation active - Listening'
+                            : 'Voice navigation enabled - Ready')
+                        : 'Voice navigation disabled - Tap to enable',
+                  ),
+                  
+                  // Listening indicator
+                  if (voiceProvider.isListening)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  
+                  // Initializing indicator
+                  if (voiceProvider.isInitializing)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: SizedBox(
+                        width: 8,
+                        height: 8,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-            tooltip: voiceProvider.isVoiceNavigationEnabled
-                    ? 'Voice navigation enabled (${voiceProvider.isListening ? "Listening" : "Ready"})'
-                : 'Voice navigation disabled',
-          ),
             ),
           ],
         );

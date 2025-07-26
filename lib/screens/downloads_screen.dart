@@ -791,8 +791,8 @@ All content is available without internet connection.
   }
 
   Future<void> _initializeScreen() async {
-    await _ttsService.speak(
-      'Offline content screen loaded. Welcome to your Buganda offline library! You have access to ${_bugandaOfflineContent.length} pre-downloaded guides, stories, music, and language lessons. Use voice commands like "show guides" or "play Kasubi guide" to explore. Say "help commands" for available options.',
+    await _ttsService.speakWithPriority(
+      'Offline library loaded. Voice navigation active. ${_bugandaOfflineContent.length} Buganda resources available including guides, stories, music, and language lessons. Say "show guides", "play Kasubi guide", or "help commands" for options.',
     );
 
     await _loadDownloadedTours();
@@ -826,11 +826,11 @@ All content is available without internet connection.
       });
 
       if (_downloadedTours.isNotEmpty) {
-        await _ttsService.speak(
+        await _ttsService.speakWithPriority(
           '${_downloadedTours.length} downloaded tours available for offline use.',
         );
       } else {
-        await _ttsService.speak(
+        await _ttsService.speakWithPriority(
           'No downloaded tours found. Visit the discover screen to download tours for offline use.',
         );
       }
@@ -839,7 +839,7 @@ All content is available without internet connection.
       setState(() {
         _isLoading = false;
       });
-      await _ttsService.speak('Error loading downloaded content.');
+      await _ttsService.speakWithPriority('Error loading downloaded content.');
     }
   }
 
@@ -887,7 +887,7 @@ All content is available without internet connection.
             'All offline content is available for exploration.';
     }
 
-    _ttsService.speak(
+    _ttsService.speakWithPriority(
       'Filtering by $category content. $categoryDescription ${_offlineContent.length} items found.',
     );
   }
