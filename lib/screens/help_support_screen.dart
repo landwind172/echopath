@@ -24,83 +24,13 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
-    });
-
-    // Listen for voice commands
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Update voice navigation context
       final voiceProvider = Provider.of<VoiceNavigationProvider>(
         context,
         listen: false,
       );
-      voiceProvider.addListener(_onVoiceCommandReceived);
+      voiceProvider.updateCurrentScreen('help');
     });
-  }
-
-  void _onVoiceCommandReceived() {
-    // Check if widget is still mounted before accessing context
-    if (!mounted) return;
-
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      if (voiceProvider.lastCommand.isNotEmpty) {
-        _handleHelpVoiceCommands(voiceProvider.lastCommand);
-        voiceProvider.clearLastCommand();
-      }
-    } catch (e) {
-      // Ignore errors if context is no longer available
-      debugPrint('Voice command error: $e');
-    }
-  }
-
-  void _handleHelpVoiceCommands(String command) {
-    final lowerCommand = command.toLowerCase();
-
-    // Navigation commands to other screens
-    if (lowerCommand.contains('go home') ||
-        lowerCommand.contains('home') ||
-        lowerCommand.contains('main screen')) {
-      Navigator.pushNamedAndRemoveUntil(context, Routes.home, (route) => false);
-      _ttsService.speakWithPriority('Navigating to home screen');
-    } else if (lowerCommand.contains('open map') ||
-        lowerCommand.contains('map') ||
-        lowerCommand.contains('show map')) {
-      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
-      _ttsService.speakWithPriority('Opening interactive map');
-    } else if (lowerCommand.contains('discover') ||
-        lowerCommand.contains('tours') ||
-        lowerCommand.contains('show tours')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.discover,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority('Opening discover tours');
-    } else if (lowerCommand.contains('downloads') ||
-        lowerCommand.contains('offline') ||
-        lowerCommand.contains('my downloads')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.downloads,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority('Opening offline library');
-    } else if (lowerCommand.contains('voice commands') ||
-        lowerCommand.contains('commands')) {
-      _speakVoiceCommands();
-    } else if (lowerCommand.contains('test voice') ||
-        lowerCommand.contains('voice test')) {
-      _ttsService.speakWithPriority(
-        'Voice commands are working in help screen! You said: $command',
-      );
-    } else {
-      // Provide helpful feedback for unrecognized commands
-      _ttsService.speakWithPriority(
-        'Command not recognized. You said: "$command". Say "voice commands" to hear available commands.',
-      );
-    }
   }
 
   Future<void> _initializeScreen() async {
@@ -361,16 +291,6 @@ All commands are designed for hands-free operation.
 
   @override
   void dispose() {
-    // Clean up voice navigation listener
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      voiceProvider.removeListener(_onVoiceCommandReceived);
-    } catch (e) {
-      // Ignore errors during dispose
-    }
     super.dispose();
   }
 

@@ -8,6 +8,7 @@ import '../screens/help_support_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/voice_diagnostic_screen.dart';
 import '../screens/voice_test_screen.dart';
+import '../screens/global_navigation_test_screen.dart';
 
 class Routes {
   static const String splash = '/';
@@ -19,6 +20,7 @@ class Routes {
   static const String helpSupport = '/help-support';
   static const String voiceDiagnostic = '/voice-diagnostic';
   static const String voiceTest = '/voice-test';
+  static const String globalNavigationTest = '/global-navigation-test';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -31,6 +33,7 @@ class Routes {
       helpSupport: (context) => const HelpSupportScreen(),
       voiceDiagnostic: (context) => const VoiceDiagnosticScreen(),
       voiceTest: (context) => const VoiceTestScreen(),
+      globalNavigationTest: (context) => const GlobalNavigationTestScreen(),
     };
   }
 }

@@ -217,7 +217,7 @@ class TTSService extends ChangeNotifier {
       await stop();
 
       // Brief delay to ensure stop completed
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       await speak(text);
     } catch (e) {
@@ -228,6 +228,18 @@ class TTSService extends ChangeNotifier {
       } catch (fallbackError) {
         debugPrint('TTS fallback speak error: $fallbackError');
       }
+    }
+  }
+
+  Future<void> speakImmediate(String text) async {
+    // Immediate speech for critical navigation feedback
+    if (!_isInitialized || text.isEmpty) return;
+
+    try {
+      final cleanText = _cleanTextForSpeech(text);
+      await _flutterTts.speak(cleanText);
+    } catch (e) {
+      debugPrint('TTS immediate speak error: $e');
     }
   }
 

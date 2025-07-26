@@ -206,158 +206,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
-    });
-
-    // Listen for voice commands
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Update voice navigation context
       final voiceProvider = Provider.of<VoiceNavigationProvider>(
         context,
         listen: false,
       );
-      voiceProvider.addListener(_onVoiceCommandReceived);
+      voiceProvider.updateCurrentScreen('discover');
     });
-  }
-
-  Future<void> _onVoiceCommandReceived() async {
-    // Check if widget is still mounted before accessing context
-    if (!mounted) return;
-
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      if (voiceProvider.lastCommand.isNotEmpty) {
-        await _handleDiscoverVoiceCommands(voiceProvider.lastCommand);
-        voiceProvider.clearLastCommand();
-      }
-    } catch (e) {
-      // Ignore errors if context is no longer available
-      debugPrint('Voice command error: $e');
-    }
-  }
-
-  Future<void> _handleDiscoverVoiceCommands(String command) async {
-    final lowerCommand = command.toLowerCase();
-
-    // Category filtering commands
-    if (lowerCommand.contains('historical') ||
-        lowerCommand.contains('history')) {
-      _onCategorySelected('Historical');
-    } else if (lowerCommand.contains('nature') ||
-        lowerCommand.contains('natural')) {
-      _onCategorySelected('Nature');
-    } else if (lowerCommand.contains('cultural') ||
-        lowerCommand.contains('culture')) {
-      _onCategorySelected('Cultural');
-    } else if (lowerCommand.contains('adventure')) {
-      _onCategorySelected('Adventure');
-    } else if (lowerCommand.contains('educational') ||
-        lowerCommand.contains('education')) {
-      _onCategorySelected('Educational');
-    } else if (lowerCommand.contains('royal') ||
-        lowerCommand.contains('kingdom')) {
-      _onCategorySelected('Royal');
-    } else if (lowerCommand.contains('spiritual') ||
-        lowerCommand.contains('religious')) {
-      _onCategorySelected('Spiritual');
-    } else if (lowerCommand.contains('all tours') ||
-        lowerCommand.contains('show all')) {
-      _onCategorySelected('All');
-    }
-    // Tour-specific commands
-    else if (lowerCommand.contains('kasubi') ||
-        lowerCommand.contains('tombs')) {
-      await _describeSpecificTour('kasubi_tombs');
-    } else if (lowerCommand.contains('namugongo') ||
-        lowerCommand.contains('martyrs')) {
-      await _describeSpecificTour('namugongo_martyrs');
-    } else if (lowerCommand.contains('lubiri') ||
-        lowerCommand.contains('palace')) {
-      await _describeSpecificTour('lubiri_palace');
-    } else if (lowerCommand.contains('mengo')) {
-      await _describeSpecificTour('mengo_hill');
-    } else if (lowerCommand.contains('bulange') ||
-        lowerCommand.contains('parliament')) {
-      await _describeSpecificTour('bulange_parliament');
-    } else if (lowerCommand.contains('lake victoria') ||
-        lowerCommand.contains('lake')) {
-      await _describeSpecificTour('lake_victoria_shore');
-    } else if (lowerCommand.contains('ndere') ||
-        lowerCommand.contains('cultural centre')) {
-      await _describeSpecificTour('ndere_centre');
-    } else if (lowerCommand.contains('market') ||
-        lowerCommand.contains('owino')) {
-      await _describeSpecificTour('kampala_markets');
-    }
-    // Navigation commands
-    else if (lowerCommand.contains('next tour') ||
-        lowerCommand.contains('next')) {
-      await _navigateToNextTour();
-    } else if (lowerCommand.contains('previous tour') ||
-        lowerCommand.contains('previous')) {
-      await _navigateToPreviousTour();
-    } else if (lowerCommand.contains('first tour') ||
-        lowerCommand.contains('start')) {
-      await _navigateToFirstTour();
-    } else if (lowerCommand.contains('last tour') ||
-        lowerCommand.contains('end')) {
-      await _navigateToLastTour();
-    }
-    // Information commands
-    else if (lowerCommand.contains('help') ||
-        lowerCommand.contains('commands')) {
-      await _speakHelpCommands();
-    } else if (lowerCommand.contains('tour count') ||
-        lowerCommand.contains('how many')) {
-      await _speakTourCount();
-    } else if (lowerCommand.contains('current tour') ||
-        lowerCommand.contains('where am i')) {
-      await _speakCurrentTour();
-    } else if (lowerCommand.contains('accessibility') ||
-        lowerCommand.contains('accessible')) {
-      await _speakAccessibilityInfo();
-    }
-    // Navigation commands to other screens
-    else if (lowerCommand.contains('go home') ||
-        lowerCommand.contains('home') ||
-        lowerCommand.contains('main screen')) {
-      Navigator.pushNamedAndRemoveUntil(context, Routes.home, (route) => false);
-      _ttsService.speakWithPriority('Navigating to home screen');
-    } else if (lowerCommand.contains('open map') ||
-        lowerCommand.contains('map') ||
-        lowerCommand.contains('show map')) {
-      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
-      _ttsService.speakWithPriority('Opening interactive map');
-    } else if (lowerCommand.contains('downloads') ||
-        lowerCommand.contains('offline') ||
-        lowerCommand.contains('my downloads')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.downloads,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority('Opening offline library');
-    } else if (lowerCommand.contains('get help') ||
-        lowerCommand.contains('support') ||
-        lowerCommand.contains('assistance')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.helpSupport,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority('Opening help and support');
-    } else if (lowerCommand.contains('test voice') ||
-        lowerCommand.contains('voice test')) {
-      _ttsService.speakWithPriority(
-        'Voice commands are working in discover screen! You said: $command',
-      );
-    } else {
-      // Provide helpful feedback for unrecognized commands
-      _ttsService.speakWithPriority(
-        'Command not recognized. You said: "$command". Say "help" to hear available commands.',
-      );
-    }
   }
 
   Future<void> _describeSpecificTour(String tourId) async {
@@ -653,16 +508,6 @@ Highlights: ${tour.highlights}.
 
   @override
   void dispose() {
-    // Clean up voice navigation listener
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      voiceProvider.removeListener(_onVoiceCommandReceived);
-    } catch (e) {
-      // Ignore errors during dispose
-    }
     super.dispose();
   }
 

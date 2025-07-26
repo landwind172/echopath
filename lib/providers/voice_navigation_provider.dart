@@ -32,27 +32,26 @@ class VoiceNavigationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Ensure voice service is properly initialized with retry logic
+      debugPrint('Voice navigation: Initializing...');
+      
+      // Initialize voice service with retry logic
       int retryCount = 0;
       const maxRetries = 3;
 
       while (!_voiceService.isInitialized && retryCount < maxRetries) {
         try {
           await _voiceService.initialize();
+          if (_voiceService.isInitialized) {
+            debugPrint('Voice navigation: Initialization successful');
+            break;
+          }
           retryCount++;
-
-          if (!_voiceService.isInitialized) {
-            debugPrint(
-              'Voice service initialization attempt $retryCount failed, retrying...',
-            );
-            await Future.delayed(
-              Duration(seconds: retryCount * 2),
-            ); // Exponential backoff
+          if (retryCount < maxRetries) {
+            debugPrint('Voice navigation: Retry $retryCount...');
+            await Future.delayed(Duration(seconds: retryCount * 2));
           }
         } catch (e) {
-          debugPrint(
-            'Voice service initialization error (attempt $retryCount): $e',
-          );
+          debugPrint('Voice navigation: Initialization error (attempt $retryCount): $e');
           retryCount++;
           if (retryCount < maxRetries) {
             await Future.delayed(Duration(seconds: retryCount * 2));
@@ -62,20 +61,23 @@ class VoiceNavigationProvider extends ChangeNotifier {
 
       if (_voiceService.isInitialized && _isVoiceNavigationEnabled) {
         await _voiceService.startContinuousListening();
-        debugPrint('Voice navigation initialized successfully');
-      } else {
-        debugPrint(
-          'Voice navigation initialization failed after $maxRetries attempts',
+        debugPrint('Voice navigation: Started continuous listening');
+        await _ttsService.speakWithPriority(
+          'Voice navigation is now active and ready for commands.'
         );
-        // Disable voice navigation if initialization fails
+      } else {
+        debugPrint('Voice navigation: Failed to initialize after $maxRetries attempts');
         _isVoiceNavigationEnabled = false;
         await _ttsService.speakWithPriority(
-          'Voice navigation could not be initialized. Please check your microphone permissions and try again.',
+          'Voice navigation could not be initialized. Please check microphone permissions.'
         );
       }
     } catch (e) {
-      debugPrint('Voice navigation initialization error: $e');
+      debugPrint('Voice navigation: Initialization error: $e');
       _isVoiceNavigationEnabled = false;
+      await _ttsService.speakWithPriority(
+        'Voice navigation initialization failed. Please try again later.'
+      );
     } finally {
       _isInitializing = false;
       notifyListeners();
@@ -86,42 +88,21 @@ class VoiceNavigationProvider extends ChangeNotifier {
     final wasListening = _isListening;
     _isListening = _voiceService.isListening;
 
-    if (_voiceService.lastWords.isNotEmpty &&
-        _voiceService.lastWords != _lastCommand) {
+    if (_voiceService.lastWords.isNotEmpty && _voiceService.lastWords != _lastCommand) {
       _lastCommand = _voiceService.lastWords;
       _addToCommandHistory(_lastCommand);
-
-      // Handle global voice commands
-      _handleGlobalCommand(_lastCommand);
+      debugPrint('Voice navigation: New command received: "$_lastCommand"');
     }
 
-    // Only notify if listening state actually changed to reduce unnecessary rebuilds
+    // Only notify if listening state changed
     if (wasListening != _isListening) {
       notifyListeners();
     }
   }
 
-  // Handle global voice commands that work from any screen
-  Future<void> _handleGlobalCommand(String command) async {
-    try {
-      debugPrint('Handling global command: "$command"');
-
-      // First try to handle as a global command
-      await _voiceService.handleGlobalVoiceCommand(command);
-
-      debugPrint('Global command processed: "$command"');
-    } catch (e) {
-      debugPrint('Global command handling error: $e');
-      await _ttsService.speakWithPriority(
-        'Voice command processing encountered an error. Please try again.',
-      );
-    }
-  }
-
-  // Update current screen context for voice service
   void updateCurrentScreen(String screenName) {
     _voiceService.updateCurrentScreen(screenName);
-    debugPrint('Updated voice service screen context to: $screenName');
+    debugPrint('Voice navigation: Updated screen context to $screenName');
   }
 
   void _addToCommandHistory(String command) {
@@ -135,22 +116,21 @@ class VoiceNavigationProvider extends ChangeNotifier {
 
   Future<void> toggleVoiceNavigation() async {
     _isVoiceNavigationEnabled = !_isVoiceNavigationEnabled;
+    debugPrint('Voice navigation: Toggled to ${_isVoiceNavigationEnabled ? "enabled" : "disabled"}');
 
     try {
       if (_isVoiceNavigationEnabled) {
-        // Try to initialize if not already initialized
         if (!_voiceService.isInitialized) {
           await _voiceService.initialize();
         }
 
         if (_voiceService.isInitialized) {
           await _voiceService.startContinuousListening();
-          await _ttsService.speakWithPriority('Voice navigation enabled');
+          await _ttsService.speakWithPriority('Voice navigation enabled and ready');
         } else {
-          // If initialization fails, disable voice navigation
           _isVoiceNavigationEnabled = false;
           await _ttsService.speakWithPriority(
-            'Voice navigation could not be enabled. Please check microphone permissions and try again.',
+            'Voice navigation could not be enabled. Please check microphone permissions.'
           );
         }
       } else {
@@ -158,25 +138,81 @@ class VoiceNavigationProvider extends ChangeNotifier {
         await _ttsService.speakWithPriority('Voice navigation disabled');
       }
     } catch (e) {
-      debugPrint('Toggle voice navigation error: $e');
-      // If there was an error, disable voice navigation for safety
+      debugPrint('Voice navigation: Toggle error: $e');
       _isVoiceNavigationEnabled = false;
       await _ttsService.speakWithPriority(
-        'Voice navigation encountered an error and has been disabled. Please try again later.',
+        'Voice navigation encountered an error and has been disabled.'
       );
     }
 
     notifyListeners();
   }
 
-  Future<void> startListening() async {
-    if (_isVoiceNavigationEnabled && !_isListening) {
-      await _voiceService.startListening();
+  Future<void> restartVoiceNavigation() async {
+    if (!_isVoiceNavigationEnabled) return;
+
+    try {
+      debugPrint('Voice navigation: Restarting...');
+      _voiceService.stopContinuousListening();
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!_voiceService.isInitialized) {
+        await _voiceService.initialize();
+      }
+
+      if (_voiceService.isInitialized) {
+        await _voiceService.startContinuousListening();
+        debugPrint('Voice navigation: Restart successful');
+        await _ttsService.speakWithPriority('Voice navigation restarted successfully');
+      } else {
+        _isVoiceNavigationEnabled = false;
+        await _ttsService.speakWithPriority(
+          'Voice navigation restart failed. Please check device settings.'
+        );
+      }
+    } catch (e) {
+      debugPrint('Voice navigation: Restart error: $e');
+      _isVoiceNavigationEnabled = false;
+      await _ttsService.speakWithPriority(
+        'Voice navigation restart failed. Please try again.'
+      );
     }
+
+    notifyListeners();
   }
 
-  Future<void> stopListening() async {
-    await _voiceService.stopListening();
+  Future<void> forceRestartVoiceNavigation() async {
+    debugPrint('Voice navigation: Force restarting...');
+    _isVoiceNavigationEnabled = true;
+    _voiceService.stopContinuousListening();
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    try {
+      await _voiceService.initialize();
+
+      if (_voiceService.isInitialized) {
+        await _voiceService.setLanguageToEnUS();
+        await _voiceService.startContinuousListening();
+        debugPrint('Voice navigation: Force restart successful');
+        await _ttsService.speakWithPriority(
+          'Voice navigation has been reset and is now active with enhanced global commands'
+        );
+      } else {
+        _isVoiceNavigationEnabled = false;
+        await _ttsService.speakWithPriority(
+          'Voice navigation reset failed. Please check your device settings.'
+        );
+      }
+    } catch (e) {
+      debugPrint('Voice navigation: Force restart error: $e');
+      _isVoiceNavigationEnabled = false;
+      await _ttsService.speakWithPriority(
+        'Voice navigation reset encountered an error. Please try again.'
+      );
+    }
+
+    notifyListeners();
   }
 
   Future<void> speakFeedback(String message) async {
@@ -187,18 +223,6 @@ class VoiceNavigationProvider extends ChangeNotifier {
     await _ttsService.speakWithPriority(message);
   }
 
-  Future<void> setLanguageToEnUS() async {
-    try {
-      await _voiceService.setLanguageToEnUS();
-      debugPrint('Language set to en-US successfully');
-      await _ttsService.speakWithPriority(
-        'Voice navigation language set to US English',
-      );
-    } catch (e) {
-      debugPrint('Error setting language to en-US: $e');
-    }
-  }
-
   void clearCommandHistory() {
     _commandHistory.clear();
     notifyListeners();
@@ -206,81 +230,6 @@ class VoiceNavigationProvider extends ChangeNotifier {
 
   void clearLastCommand() {
     _lastCommand = '';
-    // Don't notify listeners for this change to reduce rebuilds
-  }
-
-  Future<void> restartVoiceNavigation() async {
-    if (!_isVoiceNavigationEnabled) return;
-
-    try {
-      debugPrint('Restarting voice navigation...');
-      _voiceService.stopContinuousListening();
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Reinitialize the voice service
-      if (!_voiceService.isInitialized) {
-        await _voiceService.initialize();
-      }
-
-      if (_voiceService.isInitialized) {
-        await _voiceService.startContinuousListening();
-        debugPrint('Voice navigation restarted successfully');
-        await _ttsService.speakWithPriority('Voice navigation restarted');
-      } else {
-        debugPrint(
-          'Failed to restart voice navigation - service not initialized',
-        );
-        _isVoiceNavigationEnabled = false;
-        await _ttsService.speakWithPriority(
-          'Voice navigation could not be restarted. Please check microphone permissions.',
-        );
-      }
-    } catch (e) {
-      debugPrint('Restart voice navigation error: $e');
-      _isVoiceNavigationEnabled = false;
-      await _ttsService.speakWithPriority(
-        'Voice navigation restart failed. Please try again later.',
-      );
-    }
-
-    notifyListeners();
-  }
-
-  Future<void> forceRestartVoiceNavigation() async {
-    debugPrint('Force restarting voice navigation...');
-    _isVoiceNavigationEnabled = true;
-    _voiceService.stopContinuousListening();
-
-    // Wait longer for a complete reset
-    await Future.delayed(const Duration(seconds: 2));
-
-    try {
-      // Force reinitialize
-      await _voiceService.initialize();
-
-      if (_voiceService.isInitialized) {
-        // Force en-US language
-        await _voiceService.setLanguageToEnUS();
-        await _voiceService.startContinuousListening();
-        debugPrint('Voice navigation force restarted successfully with en-US');
-        await _ttsService.speakWithPriority(
-          'Voice navigation has been reset and is now active with US English',
-        );
-      } else {
-        _isVoiceNavigationEnabled = false;
-        await _ttsService.speakWithPriority(
-          'Voice navigation reset failed. Please check your device settings.',
-        );
-      }
-    } catch (e) {
-      debugPrint('Force restart voice navigation error: $e');
-      _isVoiceNavigationEnabled = false;
-      await _ttsService.speakWithPriority(
-        'Voice navigation reset encountered an error. Please try again.',
-      );
-    }
-
-    notifyListeners();
   }
 
   @override

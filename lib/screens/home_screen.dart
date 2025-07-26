@@ -38,158 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
           context,
           listen: false,
         );
-        voiceProvider.addListener(_onVoiceCommandReceived);
+        voiceProvider.updateCurrentScreen('home');
       }
     });
-  }
-
-  void _onVoiceCommandReceived() {
-    // Check if widget is still mounted before accessing context
-    if (!mounted) return;
-
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      if (voiceProvider.lastCommand.isNotEmpty) {
-        _handleHomeVoiceCommands(voiceProvider.lastCommand);
-        voiceProvider.clearLastCommand();
-      }
-    } catch (e) {
-      // Ignore errors if context is no longer available
-      debugPrint('Voice command error: $e');
-    }
-  }
-
-  void _handleHomeVoiceCommands(String command) {
-    if (!mounted) return;
-
-    final lowerCommand = command.toLowerCase();
-
-    // Debug command to test voice recognition
-    if (lowerCommand.contains('test voice') ||
-        lowerCommand.contains('voice test') ||
-        lowerCommand.contains('test microphone')) {
-      _ttsService.speakWithPriority(
-        'Voice recognition is working! You said: $command',
-      );
-      return;
-    }
-
-    // Enhanced navigation commands with multiple variations
-    if (lowerCommand.contains('map') ||
-        lowerCommand.contains('show map') ||
-        lowerCommand.contains('open map') ||
-        lowerCommand.contains('view map') ||
-        lowerCommand.contains('go to map')) {
-      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
-      _ttsService.speakWithPriority(
-        'Opening interactive map with voice navigation',
-      );
-    } else if (lowerCommand.contains('discover') ||
-        lowerCommand.contains('tours') ||
-        lowerCommand.contains('show tours') ||
-        lowerCommand.contains('browse tours') ||
-        lowerCommand.contains('find tours') ||
-        lowerCommand.contains('explore')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.discover,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority(
-        'Opening discover tours with Buganda destinations',
-      );
-    } else if (lowerCommand.contains('downloads') ||
-        lowerCommand.contains('offline') ||
-        lowerCommand.contains('my downloads') ||
-        lowerCommand.contains('saved content') ||
-        lowerCommand.contains('offline content')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.downloads,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority(
-        'Opening offline library with saved content',
-      );
-    } else if (lowerCommand.contains('help') ||
-        lowerCommand.contains('support') ||
-        lowerCommand.contains('get help') ||
-        lowerCommand.contains('assistance') ||
-        lowerCommand.contains('help me')) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        Routes.helpSupport,
-        (route) => false,
-      );
-      _ttsService.speakWithPriority(
-        'Opening help and support with voice commands guide',
-      );
-    }
-    // Voice navigation control commands
-    else if (lowerCommand.contains('restart voice') ||
-        lowerCommand.contains('reset voice') ||
-        lowerCommand.contains('restart navigation') ||
-        lowerCommand.contains('reset navigation')) {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      voiceProvider.forceRestartVoiceNavigation();
-    } else if (lowerCommand.contains('enable voice') ||
-        lowerCommand.contains('turn on voice') ||
-        lowerCommand.contains('activate voice')) {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      if (!voiceProvider.isVoiceNavigationEnabled) {
-        voiceProvider.toggleVoiceNavigation();
-      } else {
-        _ttsService.speakWithPriority('Voice navigation is already enabled');
-      }
-    } else if (lowerCommand.contains('disable voice') ||
-        lowerCommand.contains('turn off voice') ||
-        lowerCommand.contains('deactivate voice')) {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      if (voiceProvider.isVoiceNavigationEnabled) {
-        voiceProvider.toggleVoiceNavigation();
-      } else {
-        _ttsService.speakWithPriority('Voice navigation is already disabled');
-      }
-    }
-    // Quick action commands
-    else if (lowerCommand.contains('quick actions') ||
-        lowerCommand.contains('actions')) {
-      _ttsService.speakWithPriority(
-        'Quick actions are available: Map, Discover Tours, Downloads, and Help & Support',
-      );
-    } else if (lowerCommand.contains('recent tours') ||
-        lowerCommand.contains('history')) {
-      _ttsService.speakWithPriority(
-        'Recent tours section shows your recently played tours',
-      );
-    } else if (lowerCommand.contains('voice commands') ||
-        lowerCommand.contains('commands')) {
-      _speakAvailableCommands();
-    } else if (lowerCommand.contains('home') ||
-        lowerCommand.contains('main screen')) {
-      _ttsService.speakWithPriority('You are already on the home screen');
-    } else if (lowerCommand.contains('what can i do') ||
-        lowerCommand.contains('options') ||
-        lowerCommand.contains('features')) {
-      _speakHomeFeatures();
-    } else {
-      // Provide helpful feedback for unrecognized commands
-      _ttsService.speakWithPriority(
-        'Command not recognized. You said: "$command". Say "voice commands" to hear available options or use navigation commands like "open map" or "show tours".',
-      );
-    }
   }
 
   void _speakAvailableCommands() {
@@ -226,13 +77,6 @@ All features are designed for accessibility and ease of use.
           listen: false,
         );
         appStateProvider.setCurrentScreen('home');
-
-        // Update voice navigation provider with current screen context
-        final voiceProvider = Provider.of<VoiceNavigationProvider>(
-          context,
-          listen: false,
-        );
-        voiceProvider.updateCurrentScreen('home');
       }
     });
   }
@@ -248,16 +92,6 @@ All features are designed for accessibility and ease of use.
 
   @override
   void dispose() {
-    // Clean up voice navigation listener
-    try {
-      final voiceProvider = Provider.of<VoiceNavigationProvider>(
-        context,
-        listen: false,
-      );
-      voiceProvider.removeListener(_onVoiceCommandReceived);
-    } catch (e) {
-      // Ignore errors during dispose
-    }
     super.dispose();
   }
 
