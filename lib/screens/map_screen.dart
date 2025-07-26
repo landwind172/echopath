@@ -445,6 +445,12 @@ Say "navigate to ${place['name']}" to get directions.
         lowerCommand.contains('current location')) {
       _goToCurrentLocation();
     }
+    // Enhanced search commands with better feedback
+    else if (lowerCommand.contains('find nearby') ||
+        lowerCommand.contains('what is nearby') ||
+        lowerCommand.contains('nearby places')) {
+      _searchAllNearbyPlaces();
+    }
     // Search commands
     else if (lowerCommand.contains('find hotels') ||
         lowerCommand.contains('hotels')) {
@@ -461,9 +467,12 @@ Say "navigate to ${place['name']}" to get directions.
         lowerCommand.contains('tours') ||
         lowerCommand.contains('attractions')) {
       _searchPlacesByType('tour');
-    } else if (lowerCommand.contains('find places') ||
-        lowerCommand.contains('nearby places')) {
-      _searchAllNearbyPlaces();
+    } else if (lowerCommand.contains('find historical') ||
+        lowerCommand.contains('historical sites')) {
+      _searchPlacesByType('historical');
+    } else if (lowerCommand.contains('find religious') ||
+        lowerCommand.contains('religious sites')) {
+      _searchPlacesByType('religious');
     }
     // Zoom commands
     else if (lowerCommand.contains('zoom in') ||
@@ -473,6 +482,11 @@ Say "navigate to ${place['name']}" to get directions.
         lowerCommand.contains('farther')) {
       _zoomOut();
     }
+    // Enhanced navigation commands
+    else if (lowerCommand.contains('navigate to') ||
+        lowerCommand.contains('directions to')) {
+      _handleNavigationRequest(command);
+    }
     // Navigation commands
     else if (lowerCommand.contains('start navigation') ||
         lowerCommand.contains('navigate')) {
@@ -481,15 +495,104 @@ Say "navigate to ${place['name']}" to get directions.
         lowerCommand.contains('end navigation')) {
       _stopNavigation();
     }
+    // Accessibility commands
+    else if (lowerCommand.contains('describe location') ||
+        lowerCommand.contains('what is here')) {
+      _describeCurrentView();
+    } else if (lowerCommand.contains('read markers') ||
+        lowerCommand.contains('list places')) {
+      _readAllMarkers();
+    }
     // Help and info commands
     else if (lowerCommand.contains('help') ||
         lowerCommand.contains('commands')) {
       _speakHelpCommands();
     } else if (lowerCommand.contains('map info')) {
       _speakMapInfo();
+    } else {
+      // Provide helpful feedback for unrecognized commands
+      _ttsService.speak('Map command not recognized. Say "help" to hear available map commands.');
     }
   }
 
+  void _handleNavigationRequest(String command) {
+    // Extract destination from command
+    final lowerCommand = command.toLowerCase();
+    String? destination;
+    
+    for (final place in _bugandaPlaces) {
+      final placeName = place['name'].toString().toLowerCase();
+      if (lowerCommand.contains(placeName.split(' ').first)) {
+        destination = place['name'];
+        break;
+      }
+    }
+    
+    if (destination != null) {
+      _ttsService.speak('Starting navigation to $destination. Follow voice guidance.');
+      _startNavigationToPlace(destination);
+    } else {
+      _ttsService.speak('Destination not found. Say "find places" to hear available locations.');
+    }
+  }
+
+  void _startNavigationToPlace(String placeName) {
+    final place = _bugandaPlaces.firstWhere(
+      (p) => p['name'] == placeName,
+      orElse: () => _bugandaPlaces.first,
+    );
+    
+    if (!mounted) return;
+    setState(() {
+      _isNavigating = true;
+      _currentNarration = 'Navigating to $placeName. Distance calculating...';
+    });
+    
+    // Center map on destination
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(place['position'], 16.0),
+    );
+    
+    _speakPlaceDetails(place);
+  }
+
+  void _describeCurrentView() {
+    final locationProvider = Provider.of<LocationProvider>(
+      context,
+      listen: false,
+    );
+    
+    String description = 'Current map view: ';
+    description += 'Zoom level ${_currentZoom.toStringAsFixed(1)}. ';
+    
+    if (locationProvider.currentPosition != null) {
+      description += 'Your location is visible. ';
+      final nearbyPlaces = _findNearbyPlaces(locationProvider.currentPosition!);
+      if (nearbyPlaces.isNotEmpty) {
+        description += '${nearbyPlaces.length} nearby places visible including ';
+        description += nearbyPlaces.take(3).map((p) => p['name']).join(', ');
+      }
+    } else {
+      description += 'Location not available. ';
+    }
+    
+    description += '. ${_markers.length} total markers on map.';
+    _ttsService.speak(description);
+  }
+
+  void _readAllMarkers() {
+    if (_markers.isEmpty) {
+      _ttsService.speak('No markers currently visible on the map.');
+      return;
+    }
+    
+    final markerNames = _bugandaPlaces.map((place) => place['name']).toList();
+    final markerList = markerNames.take(10).join(', ');
+    
+    _ttsService.speak(
+      'Map markers: $markerList. Say "navigate to" followed by a place name to get directions.',
+    );
+  }
   Future<void> _searchAllNearbyPlaces() async {
     final locationProvider = Provider.of<LocationProvider>(
       context,
@@ -500,17 +603,19 @@ Say "navigate to ${place['name']}" to get directions.
       final nearbyPlaces = _findNearbyPlaces(locationProvider.currentPosition!);
       
       if (nearbyPlaces.isNotEmpty) {
-        final placesList = nearbyPlaces.take(5).map((place) {
+        final placesList = nearbyPlaces.take(8).map((place) {
           final distance = (place['distance'] as double / 1000).toStringAsFixed(1);
-          return '${place['name']}, ${distance} kilometers away';
+          return '${place['name']}, ${distance} kilometers away, ${place['category']}';
         }).join('. ');
         
         await _ttsService.speak(
-          'Found ${nearbyPlaces.length} nearby places: $placesList',
+          'Found ${nearbyPlaces.length} nearby places: $placesList. Say "navigate to" followed by a place name for directions.',
         );
       } else {
         await _ttsService.speak('No places found nearby.');
       }
+    } else {
+      await _ttsService.speak('Location not available. Please enable location services.');
     }
   }
 
@@ -560,11 +665,12 @@ Say "navigate to ${place['name']}" to get directions.
     final helpText = '''
 Available map voice commands:
 Location: "Where am I"
-Search: "Find hotels", "Find restaurants", "Find markets", "Find tours", "Find places"
+Search: "Find hotels", "Find restaurants", "Find markets", "Find tours", "Find nearby places"
+Navigation: "Navigate to [place name]", "Start navigation", "Stop navigation"
 Zoom: "Zoom in", "Zoom out"
-Navigation: "Start navigation", "Stop navigation"
-Information: "Map info", "Help commands"
-All places include detailed information and ratings.
+Information: "Describe location", "Read markers", "Map info"
+Accessibility: All places include detailed audio descriptions and accessibility information.
+Say place names like "Kasubi Tombs", "Namugongo Shrine", or "Lubiri Palace" for specific locations.
 ''';
     _ttsService.speak(helpText);
   }
@@ -728,7 +834,7 @@ All places include detailed information and ratings.
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Say: "Find hotels", "Find restaurants", "Find markets", "Find tours", "Where am I", "Help"',
+                    'Say: "Find nearby places", "Navigate to Kasubi Tombs", "Where am I", "Describe location", "Help"',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_currentSearchType.isNotEmpty) ...[
@@ -739,6 +845,17 @@ All places include detailed information and ratings.
                         fontSize: 12,
                         color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  if (_recentCommands.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Last command: "${_recentCommands.first}"',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],

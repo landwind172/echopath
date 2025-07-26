@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         lowerCommand.contains('open map') ||
         lowerCommand.contains('view map') ||
         lowerCommand.contains('go to map')) {
-      Navigator.pushReplacementNamed(context, '/map');
+      Navigator.pushNamedAndRemoveUntil(context, '/map', (route) => false);
       _ttsService.speakWithPriority('Opening interactive map with voice navigation');
     } else if (lowerCommand.contains('discover') ||
         lowerCommand.contains('tours') ||
@@ -79,21 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
         lowerCommand.contains('browse tours') ||
         lowerCommand.contains('find tours') ||
         lowerCommand.contains('explore')) {
-      Navigator.pushReplacementNamed(context, '/discover');
+      Navigator.pushNamedAndRemoveUntil(context, '/discover', (route) => false);
       _ttsService.speakWithPriority('Opening discover tours with Buganda destinations');
     } else if (lowerCommand.contains('downloads') ||
         lowerCommand.contains('offline') ||
         lowerCommand.contains('my downloads') ||
         lowerCommand.contains('saved content') ||
         lowerCommand.contains('offline content')) {
-      Navigator.pushReplacementNamed(context, '/downloads');
+      Navigator.pushNamedAndRemoveUntil(context, '/downloads', (route) => false);
       _ttsService.speakWithPriority('Opening offline library with saved content');
     } else if (lowerCommand.contains('help') ||
         lowerCommand.contains('support') ||
         lowerCommand.contains('get help') ||
         lowerCommand.contains('assistance') ||
         lowerCommand.contains('help me')) {
-      Navigator.pushReplacementNamed(context, '/help-support');
+      Navigator.pushNamedAndRemoveUntil(context, '/help-support', (route) => false);
       _ttsService.speakWithPriority('Opening help and support with voice commands guide');
     }
     // Quick action commands
@@ -117,6 +117,9 @@ class _HomeScreenState extends State<HomeScreen> {
         lowerCommand.contains('options') ||
         lowerCommand.contains('features')) {
       _speakHomeFeatures();
+    } else {
+      // Provide helpful feedback for unrecognized commands
+      _ttsService.speakWithPriority('Command not recognized. Say "voice commands" to hear available options or use navigation commands like "open map" or "show tours".');
     }
   }
 

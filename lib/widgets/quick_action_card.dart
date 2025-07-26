@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/tts_service.dart';
+import '../services/dependency_injection.dart';
 
 class QuickActionCard extends StatelessWidget {
   final String title;
@@ -23,6 +25,11 @@ class QuickActionCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
+        onLongPress: () {
+          // Provide voice feedback on long press
+          final ttsService = getIt<TTSService>();
+          ttsService.speak('$title: $subtitle. Voice command: $voiceCommand');
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(

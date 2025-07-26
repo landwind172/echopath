@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../core/constants.dart';
 import 'tts_service.dart';
 import 'navigation_service.dart';
@@ -184,26 +185,21 @@ class VoiceService extends ChangeNotifier {
       // Wait a brief moment to ensure TTS has stopped
       await Future.delayed(const Duration(milliseconds: 200));
 
-      // Enhanced navigation commands with multiple variations
-      if (_isNavigationCommand(command, ['home', 'go home', 'main screen', 'main menu', 'start screen'])) {
-        navigationService.navigateToHome();
-        await ttsService.speak('Navigating to home screen');
+      // Enhanced navigation commands with immediate navigation
+      if (_isNavigationCommand(command, ['home', 'go home', 'main screen', 'main menu', 'start screen', 'back to home'])) {
+        await _navigateWithFeedback(navigationService.navigateToHome, 'Navigating to home screen', ttsService);
       } 
-      else if (_isNavigationCommand(command, ['map', 'show map', 'open map', 'view map', 'location', 'navigation'])) {
-        navigationService.navigateToMap();
-        await ttsService.speak('Opening map screen');
+      else if (_isNavigationCommand(command, ['map', 'show map', 'open map', 'view map', 'location', 'navigation', 'go to map'])) {
+        await _navigateWithFeedback(navigationService.navigateToMap, 'Opening interactive map with voice navigation', ttsService);
       } 
-      else if (_isNavigationCommand(command, ['discover', 'tours', 'show tours', 'browse tours', 'find tours', 'explore'])) {
-        navigationService.navigateToDiscover();
-        await ttsService.speak('Opening discover screen');
+      else if (_isNavigationCommand(command, ['discover', 'tours', 'show tours', 'browse tours', 'find tours', 'explore', 'go to discover'])) {
+        await _navigateWithFeedback(navigationService.navigateToDiscover, 'Opening discover tours with Buganda destinations', ttsService);
       } 
-      else if (_isNavigationCommand(command, ['downloads', 'offline', 'my downloads', 'saved content', 'offline content'])) {
-        navigationService.navigateToDownloads();
-        await ttsService.speak('Opening downloads screen');
+      else if (_isNavigationCommand(command, ['downloads', 'offline', 'my downloads', 'saved content', 'offline content', 'go to downloads'])) {
+        await _navigateWithFeedback(navigationService.navigateToDownloads, 'Opening offline library with saved content', ttsService);
       } 
-      else if (_isNavigationCommand(command, ['help', 'support', 'get help', 'assistance', 'help me'])) {
-        navigationService.navigateToHelpSupport();
-        await ttsService.speak('Opening help and support screen');
+      else if (_isNavigationCommand(command, ['help', 'support', 'get help', 'assistance', 'help me', 'go to help'])) {
+        await _navigateWithFeedback(navigationService.navigateToHelpSupport, 'Opening help and support with voice commands guide', ttsService);
       }
       // Enhanced location and map commands
       else if (_isNavigationCommand(command, ['where am i', 'my location', 'current location', 'find me'])) {
@@ -269,6 +265,21 @@ class VoiceService extends ChangeNotifier {
       // Brief delay before allowing new commands to prevent rapid-fire commands
       await Future.delayed(const Duration(milliseconds: 500));
     }
+  }
+
+  Future<void> _navigateWithFeedback(
+    VoidCallback navigationFunction,
+    String feedbackMessage,
+    TTSService ttsService,
+  ) async {
+    // Provide immediate feedback
+    await ttsService.speakWithPriority(feedbackMessage);
+    
+    // Execute navigation immediately
+    navigationFunction();
+    
+    // Brief delay to ensure navigation completes
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   bool _isNavigationCommand(String command, List<String> triggers) {

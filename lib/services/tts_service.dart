@@ -186,8 +186,24 @@ class TTSService extends ChangeNotifier {
   }
 
   Future<void> speakWithPriority(String text) async {
-    // High priority speech that interrupts current speech
-    await stop();
-    await speak(text);
+    // High priority speech that interrupts current speech and clears queue
+    try {
+      _speechQueue.clear();
+      _isProcessingQueue = false;
+      await stop();
+      
+      // Brief delay to ensure stop completed
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      await speak(text);
+    } catch (e) {
+      debugPrint('TTS speak with priority error: $e');
+      // Fallback: try direct speak
+      try {
+        await _flutterTts.speak(_cleanTextForSpeech(text));
+      } catch (fallbackError) {
+        debugPrint('TTS fallback speak error: $fallbackError');
+      }
+    }
   }
 }

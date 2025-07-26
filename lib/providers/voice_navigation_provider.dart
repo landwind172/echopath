@@ -77,7 +77,12 @@ class VoiceNavigationProvider extends ChangeNotifier {
 
     try {
       if (_isVoiceNavigationEnabled) {
-        await _voiceService.startContinuousListening();
+        if (!_voiceService.isInitialized) {
+          await _voiceService.initialize();
+        }
+        if (_voiceService.isInitialized) {
+          await _voiceService.startContinuousListening();
+        }
         await _ttsService.speakWithPriority('Voice navigation enabled');
       } else {
         _voiceService.stopContinuousListening();
@@ -85,6 +90,11 @@ class VoiceNavigationProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Toggle voice navigation error: $e');
+      // Retry initialization if there was an error
+      if (_isVoiceNavigationEnabled) {
+        await Future.delayed(const Duration(seconds: 1));
+        await restartVoiceNavigation();
+      }
     }
 
     notifyListeners();
@@ -131,9 +141,22 @@ class VoiceNavigationProvider extends ChangeNotifier {
       
       if (_voiceService.isInitialized) {
         await _voiceService.startContinuousListening();
+        debugPrint('Voice navigation restarted successfully');
+      } else {
+        debugPrint('Failed to restart voice navigation - service not initialized');
       }
     } catch (e) {
       debugPrint('Restart voice navigation error: $e');
+      // Try one more time after a longer delay
+      await Future.delayed(const Duration(seconds: 2));
+      try {
+        await _voiceService.initialize();
+        if (_voiceService.isInitialized) {
+          await _voiceService.startContinuousListening();
+        }
+      } catch (retryError) {
+        debugPrint('Voice navigation restart retry failed: $retryError');
+      }
     }
   }
 

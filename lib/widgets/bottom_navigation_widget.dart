@@ -74,12 +74,9 @@ class BottomNavigationWidget extends StatelessWidget {
         return;
     }
 
-    ttsService.speak('Navigating to $screenName screen');
+    ttsService.speakWithPriority('Navigating to $screenName screen');
     
-    if (index == 0) {
-      Navigator.of(context).pushNamedAndRemoveUntil(route, (route) => false);
-    } else {
-      Navigator.of(context).pushNamed(route);
-    }
+    // Always use pushNamedAndRemoveUntil for seamless navigation
+    Navigator.of(context).pushNamedAndRemoveUntil(route, (route) => false);
   }
 }

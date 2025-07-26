@@ -11,6 +11,12 @@ class AppConstants {
     'go to downloads', 'open downloads', 'offline content', 'saved content', 'my downloads',
     // Help navigation
     'go to help', 'open help', 'get support', 'assistance', 'help me',
+    // Enhanced navigation commands
+    'back to home', 'return home', 'main menu', 'start screen',
+    'interactive map', 'map screen', 'location screen',
+    'discover screen', 'tour screen', 'explore screen',
+    'downloads screen', 'offline screen', 'library screen',
+    'help screen', 'support screen', 'assistance screen',
   ];
 
   static const List<String> playbackCommands = [
@@ -28,12 +34,16 @@ class AppConstants {
   static const List<String> mapCommands = [
     // Location commands
     'where am i', 'my location', 'current location', 'find me',
+    'describe location', 'what is here', 'current view',
     // Search commands
     'find places', 'nearby places', 'find hotels', 'find restaurants', 'find markets', 'find tours',
+    'find historical', 'find religious', 'historical sites', 'religious sites',
+    'what is nearby', 'search nearby', 'list places', 'read markers',
     // Zoom commands
     'zoom in', 'zoom out', 'closer', 'farther',
     // Navigation commands
-    'navigate to', 'start navigation', 'stop navigation', 'directions',
+    'navigate to', 'directions to', 'start navigation', 'stop navigation', 'directions',
+    'go to kasubi', 'go to namugongo', 'go to palace', 'go to mengo',
   ];
 
   // Audio Settings
