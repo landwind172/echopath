@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/routes.dart';
 import 'tts_service.dart';
+import 'navigation_coordinator.dart';
 import 'dependency_injection.dart';
 
 class NavigationService {
@@ -9,42 +9,41 @@ class NavigationService {
 
   BuildContext? get context => navigatorKey.currentContext;
   final TTSService _ttsService = getIt<TTSService>();
+  final NavigationCoordinator _navigationCoordinator = NavigationCoordinator();
 
-  void navigateToHome() {
+  Future<void> navigateToHome() async {
     if (context != null) {
-      Navigator.of(context!).pushNamedAndRemoveUntil(Routes.home, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'home');
     }
   }
 
-  void navigateToMap() {
+  Future<void> navigateToMap() async {
     if (context != null) {
-      Navigator.of(context!).pushNamedAndRemoveUntil(Routes.map, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'map');
     }
   }
 
-  void navigateToDiscover() {
+  Future<void> navigateToDiscover() async {
     if (context != null) {
-      Navigator.of(context!).pushNamedAndRemoveUntil(Routes.discover, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'discover');
     }
   }
 
-  void navigateToDownloads() {
+  Future<void> navigateToDownloads() async {
     if (context != null) {
-      Navigator.of(context!).pushNamedAndRemoveUntil(Routes.downloads, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'downloads');
     }
   }
 
-  void navigateToHelpSupport() {
+  Future<void> navigateToHelpSupport() async {
     if (context != null) {
-      Navigator.of(context!).pushNamedAndRemoveUntil(Routes.helpSupport, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'help');
     }
   }
 
-  void navigateToOnboarding() {
+  Future<void> navigateToOnboarding() async {
     if (context != null) {
-      Navigator.of(
-        context!,
-      ).pushNamedAndRemoveUntil(Routes.onboarding, (route) => false);
+      await _navigationCoordinator.navigateToScreen(context!, 'onboarding');
     }
   }
 
@@ -55,10 +54,26 @@ class NavigationService {
   }
 
   // Enhanced navigation with voice feedback
-  Future<void> navigateWithVoiceFeedback(String route, String screenName) async {
+  Future<void> navigateWithVoiceFeedback(
+    String route,
+    String screenName,
+  ) async {
     if (context != null) {
       await _ttsService.speakWithPriority('Navigating to $screenName');
       Navigator.of(context!).pushNamedAndRemoveUntil(route, (route) => false);
     }
+  }
+
+  // Get current screen name
+  String get currentScreen => _navigationCoordinator.currentScreen;
+
+  // Get available commands for current screen
+  List<String> getAvailableCommands() {
+    return _navigationCoordinator.getAvailableCommands();
+  }
+
+  // Speak available commands
+  Future<void> speakAvailableCommands() async {
+    await _navigationCoordinator.speakAvailableCommands();
   }
 }

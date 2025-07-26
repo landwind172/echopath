@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/voice_navigation_provider.dart';
 import '../services/tts_service.dart';
+import '../services/voice_service.dart';
 import '../services/dependency_injection.dart';
+import '../core/routes.dart';
 import '../widgets/bottom_navigation_widget.dart';
 import '../widgets/voice_status_widget.dart';
 import '../widgets/quick_action_card.dart';
@@ -65,36 +67,101 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final lowerCommand = command.toLowerCase();
 
+    // Debug command to test voice recognition
+    if (lowerCommand.contains('test voice') ||
+        lowerCommand.contains('voice test') ||
+        lowerCommand.contains('test microphone')) {
+      _ttsService.speakWithPriority(
+        'Voice recognition is working! You said: $command',
+      );
+      return;
+    }
+
     // Enhanced navigation commands with multiple variations
     if (lowerCommand.contains('map') ||
         lowerCommand.contains('show map') ||
         lowerCommand.contains('open map') ||
         lowerCommand.contains('view map') ||
         lowerCommand.contains('go to map')) {
-      Navigator.pushNamedAndRemoveUntil(context, '/map', (route) => false);
-      _ttsService.speakWithPriority('Opening interactive map with voice navigation');
+      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
+      _ttsService.speakWithPriority(
+        'Opening interactive map with voice navigation',
+      );
     } else if (lowerCommand.contains('discover') ||
         lowerCommand.contains('tours') ||
         lowerCommand.contains('show tours') ||
         lowerCommand.contains('browse tours') ||
         lowerCommand.contains('find tours') ||
         lowerCommand.contains('explore')) {
-      Navigator.pushNamedAndRemoveUntil(context, '/discover', (route) => false);
-      _ttsService.speakWithPriority('Opening discover tours with Buganda destinations');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.discover,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority(
+        'Opening discover tours with Buganda destinations',
+      );
     } else if (lowerCommand.contains('downloads') ||
         lowerCommand.contains('offline') ||
         lowerCommand.contains('my downloads') ||
         lowerCommand.contains('saved content') ||
         lowerCommand.contains('offline content')) {
-      Navigator.pushNamedAndRemoveUntil(context, '/downloads', (route) => false);
-      _ttsService.speakWithPriority('Opening offline library with saved content');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.downloads,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority(
+        'Opening offline library with saved content',
+      );
     } else if (lowerCommand.contains('help') ||
         lowerCommand.contains('support') ||
         lowerCommand.contains('get help') ||
         lowerCommand.contains('assistance') ||
         lowerCommand.contains('help me')) {
-      Navigator.pushNamedAndRemoveUntil(context, '/help-support', (route) => false);
-      _ttsService.speakWithPriority('Opening help and support with voice commands guide');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.helpSupport,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority(
+        'Opening help and support with voice commands guide',
+      );
+    }
+    // Voice navigation control commands
+    else if (lowerCommand.contains('restart voice') ||
+        lowerCommand.contains('reset voice') ||
+        lowerCommand.contains('restart navigation') ||
+        lowerCommand.contains('reset navigation')) {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      voiceProvider.forceRestartVoiceNavigation();
+    } else if (lowerCommand.contains('enable voice') ||
+        lowerCommand.contains('turn on voice') ||
+        lowerCommand.contains('activate voice')) {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      if (!voiceProvider.isVoiceNavigationEnabled) {
+        voiceProvider.toggleVoiceNavigation();
+      } else {
+        _ttsService.speakWithPriority('Voice navigation is already enabled');
+      }
+    } else if (lowerCommand.contains('disable voice') ||
+        lowerCommand.contains('turn off voice') ||
+        lowerCommand.contains('deactivate voice')) {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      if (voiceProvider.isVoiceNavigationEnabled) {
+        voiceProvider.toggleVoiceNavigation();
+      } else {
+        _ttsService.speakWithPriority('Voice navigation is already disabled');
+      }
     }
     // Quick action commands
     else if (lowerCommand.contains('quick actions') ||
@@ -119,7 +186,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _speakHomeFeatures();
     } else {
       // Provide helpful feedback for unrecognized commands
-      _ttsService.speakWithPriority('Command not recognized. Say "voice commands" to hear available options or use navigation commands like "open map" or "show tours".');
+      _ttsService.speakWithPriority(
+        'Command not recognized. You said: "$command". Say "voice commands" to hear available options or use navigation commands like "open map" or "show tours".',
+      );
     }
   }
 
@@ -128,6 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _ttsService.speakWithPriority('''
 Available voice commands on home screen:
 Navigation: "Open map", "Show tours", "Downloads", "Get help"
+Voice Control: "Enable voice", "Disable voice", "Restart voice navigation"
+Testing: "Test voice" to verify microphone is working
 Information: "Quick actions", "Recent tours", "What can I do"
 Features: All screens support voice navigation for seamless accessibility.
 You can speak naturally - the app understands multiple ways to say the same command.
@@ -155,6 +226,13 @@ All features are designed for accessibility and ease of use.
           listen: false,
         );
         appStateProvider.setCurrentScreen('home');
+
+        // Update voice navigation provider with current screen context
+        final voiceProvider = Provider.of<VoiceNavigationProvider>(
+          context,
+          listen: false,
+        );
+        voiceProvider.updateCurrentScreen('home');
       }
     });
   }
@@ -319,28 +397,28 @@ All features are designed for accessibility and ease of use.
                   title: 'Explore Map',
                   subtitle: 'Find nearby tours',
                   icon: Icons.map,
-                  onTap: () => Navigator.pushNamed(context, '/map'),
+                  onTap: () => Navigator.pushNamed(context, Routes.map),
                   voiceCommand: '"Open map"',
                 ),
                 QuickActionCard(
                   title: 'Discover Tours',
                   subtitle: 'Browse available tours',
                   icon: Icons.explore,
-                  onTap: () => Navigator.pushNamed(context, '/discover'),
+                  onTap: () => Navigator.pushNamed(context, Routes.discover),
                   voiceCommand: '"Show tours"',
                 ),
                 QuickActionCard(
                   title: 'My Downloads',
                   subtitle: 'Offline content',
                   icon: Icons.download,
-                  onTap: () => Navigator.pushNamed(context, '/downloads'),
+                  onTap: () => Navigator.pushNamed(context, Routes.downloads),
                   voiceCommand: '"Downloads"',
                 ),
                 QuickActionCard(
                   title: 'Help & Support',
                   subtitle: 'Get assistance',
                   icon: Icons.help,
-                  onTap: () => Navigator.pushNamed(context, '/help-support'),
+                  onTap: () => Navigator.pushNamed(context, Routes.helpSupport),
                   voiceCommand: '"Get help"',
                 ),
               ],
@@ -356,43 +434,79 @@ All features are designed for accessibility and ease of use.
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Theme.of(context).dividerColor),
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Icon(
-                        voiceProvider.isVoiceNavigationEnabled
-                            ? Icons.mic
-                            : Icons.mic_off,
-                        color: voiceProvider.isVoiceNavigationEnabled
-                            ? Colors.green
-                            : Colors.red,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Voice Navigation',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                      Row(
+                        children: [
+                          Icon(
+                            voiceProvider.isVoiceNavigationEnabled
+                                ? Icons.mic
+                                : Icons.mic_off,
+                            color: voiceProvider.isVoiceNavigationEnabled
+                                ? Colors.green
+                                : Colors.red,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Voice Navigation',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  voiceProvider.isVoiceNavigationEnabled
+                                      ? 'Voice commands are active'
+                                      : 'Voice commands are disabled',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
                             ),
-                            Text(
-                              voiceProvider.isVoiceNavigationEnabled
-                                  ? 'Voice commands are active'
-                                  : 'Voice commands are disabled',
-                              style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          Switch(
+                            value: voiceProvider.isVoiceNavigationEnabled,
+                            onChanged: (value) {
+                              voiceProvider.toggleVoiceNavigation();
+                            },
+                            activeColor: Colors.green,
+                          ),
+                        ],
+                      ),
+                      if (!voiceProvider.isVoiceNavigationEnabled) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: voiceProvider.isInitializing
+                                    ? null
+                                    : () => voiceProvider
+                                          .forceRestartVoiceNavigation(),
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: Text(
+                                  voiceProvider.isInitializing
+                                      ? 'Initializing...'
+                                      : 'Restart Voice Navigation',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      Switch(
-                        value: voiceProvider.isVoiceNavigationEnabled,
-                        onChanged: (value) {
-                          voiceProvider.toggleVoiceNavigation();
-                        },
-                        activeColor: Colors.green,
-                      ),
+                      ],
                     ],
                   ),
                 );
@@ -490,12 +604,57 @@ All features are designed for accessibility and ease of use.
             '"Open map", "Show tours", "Downloads", "Get help"',
           ),
           _buildVoiceCommandItem(
+            'Voice Control',
+            '"Enable voice", "Disable voice", "Restart voice navigation"',
+          ),
+          _buildVoiceCommandItem(
+            'Testing',
+            '"Test voice" to verify microphone is working',
+          ),
+          _buildVoiceCommandItem(
             'Information',
             '"Quick actions", "Recent tours", "Voice commands"',
           ),
           _buildVoiceCommandItem(
             'Help',
             '"Voice commands" to hear all options',
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, '/voice-diagnostic');
+            },
+            icon: Icon(Icons.bug_report),
+            label: Text('Voice Navigation Diagnostics'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, '/voice-test');
+            },
+            icon: Icon(Icons.mic),
+            label: Text('Voice Navigation Test'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final voiceService = getIt<VoiceService>();
+              await voiceService.testVoiceNavigation();
+            },
+            icon: Icon(Icons.bug_report),
+            label: Text('Test Voice Service'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),

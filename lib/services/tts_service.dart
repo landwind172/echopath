@@ -25,11 +25,23 @@ class TTSService extends ChangeNotifier {
       await _flutterTts.setPitch(_pitch);
       await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.setVolume(1.0);
-      
+
       // Set TTS engine preferences for better quality
-      await _flutterTts.setSharedInstance(true);
-      await _flutterTts.awaitSpeakCompletion(true);
-      
+      // Note: setSharedInstance is not available on web
+      if (!kIsWeb) {
+        try {
+          await _flutterTts.setSharedInstance(true);
+        } catch (e) {
+          debugPrint('setSharedInstance not available: $e');
+        }
+      }
+
+      try {
+        await _flutterTts.awaitSpeakCompletion(true);
+      } catch (e) {
+        debugPrint('awaitSpeakCompletion not available: $e');
+      }
+
       // Configure handlers for smooth operation
       _flutterTts.setStartHandler(() {
         _isSpeaking = true;
@@ -67,17 +79,29 @@ class TTSService extends ChangeNotifier {
 
     // Clean and optimize text for speech
     final cleanText = _cleanTextForSpeech(text);
-    
+
     try {
       // Stop current speech and clear queue for immediate response
       await stop();
+
+      // Wait a brief moment to ensure stop completed
+      await Future.delayed(const Duration(milliseconds: 50));
+
       await _flutterTts.speak(cleanText);
+
+      // Wait for speech to complete
+      while (_isSpeaking) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
     } catch (e) {
       debugPrint('TTS speak error: $e');
       // Retry once if there's an error
       try {
         await Future.delayed(const Duration(milliseconds: 100));
         await _flutterTts.speak(cleanText);
+        while (_isSpeaking) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
       } catch (retryError) {
         debugPrint('TTS retry speak error: $retryError');
       }
@@ -89,7 +113,7 @@ class TTSService extends ChangeNotifier {
 
     final cleanText = _cleanTextForSpeech(text);
     _speechQueue.add(cleanText);
-    
+
     if (!_isProcessingQueue && !_isSpeaking) {
       _processNextInQueue();
     }
@@ -97,12 +121,12 @@ class TTSService extends ChangeNotifier {
 
   Future<void> _processNextInQueue() async {
     if (_speechQueue.isEmpty || _isProcessingQueue) return;
-    
+
     _isProcessingQueue = true;
-    
+
     while (_speechQueue.isNotEmpty && _isInitialized) {
       final text = _speechQueue.removeAt(0);
-      
+
       try {
         await _flutterTts.speak(text);
         // Wait for completion before processing next item
@@ -113,7 +137,7 @@ class TTSService extends ChangeNotifier {
         debugPrint('TTS queue processing error: $e');
       }
     }
-    
+
     _isProcessingQueue = false;
   }
 
@@ -191,10 +215,10 @@ class TTSService extends ChangeNotifier {
       _speechQueue.clear();
       _isProcessingQueue = false;
       await stop();
-      
+
       // Brief delay to ensure stop completed
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       await speak(text);
     } catch (e) {
       debugPrint('TTS speak with priority error: $e');
@@ -204,6 +228,33 @@ class TTSService extends ChangeNotifier {
       } catch (fallbackError) {
         debugPrint('TTS fallback speak error: $fallbackError');
       }
+    }
+  }
+
+  Future<void> speakSequential(List<String> texts) async {
+    if (!_isInitialized || texts.isEmpty) return;
+
+    try {
+      // Stop any current speech
+      await stop();
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      for (final text in texts) {
+        if (text.isEmpty) continue;
+
+        final cleanText = _cleanTextForSpeech(text);
+        await _flutterTts.speak(cleanText);
+
+        // Wait for this utterance to complete before starting the next
+        while (_isSpeaking) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+
+        // Brief pause between utterances
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    } catch (e) {
+      debugPrint('TTS sequential speak error: $e');
     }
   }
 }

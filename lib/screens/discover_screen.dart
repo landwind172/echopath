@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/voice_navigation_provider.dart';
 import '../services/tts_service.dart';
 import '../services/firebase_service.dart';
 import '../services/dependency_injection.dart';
 import '../models/tour_model.dart';
-import '../providers/voice_navigation_provider.dart';
+import '../core/routes.dart';
 import '../widgets/bottom_navigation_widget.dart';
 import '../widgets/voice_status_widget.dart';
 import '../widgets/tour_card_widget.dart';
@@ -217,7 +218,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     });
   }
 
-  void _onVoiceCommandReceived() {
+  Future<void> _onVoiceCommandReceived() async {
     // Check if widget is still mounted before accessing context
     if (!mounted) return;
 
@@ -227,7 +228,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         listen: false,
       );
       if (voiceProvider.lastCommand.isNotEmpty) {
-        _handleDiscoverVoiceCommands(voiceProvider.lastCommand);
+        await _handleDiscoverVoiceCommands(voiceProvider.lastCommand);
         voiceProvider.clearLastCommand();
       }
     } catch (e) {
@@ -236,7 +237,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     }
   }
 
-  void _handleDiscoverVoiceCommands(String command) {
+  Future<void> _handleDiscoverVoiceCommands(String command) async {
     final lowerCommand = command.toLowerCase();
 
     // Category filtering commands
@@ -267,65 +268,105 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     // Tour-specific commands
     else if (lowerCommand.contains('kasubi') ||
         lowerCommand.contains('tombs')) {
-      _describeSpecificTour('kasubi_tombs');
+      await _describeSpecificTour('kasubi_tombs');
     } else if (lowerCommand.contains('namugongo') ||
         lowerCommand.contains('martyrs')) {
-      _describeSpecificTour('namugongo_martyrs');
+      await _describeSpecificTour('namugongo_martyrs');
     } else if (lowerCommand.contains('lubiri') ||
         lowerCommand.contains('palace')) {
-      _describeSpecificTour('lubiri_palace');
+      await _describeSpecificTour('lubiri_palace');
     } else if (lowerCommand.contains('mengo')) {
-      _describeSpecificTour('mengo_hill');
+      await _describeSpecificTour('mengo_hill');
     } else if (lowerCommand.contains('bulange') ||
         lowerCommand.contains('parliament')) {
-      _describeSpecificTour('bulange_parliament');
+      await _describeSpecificTour('bulange_parliament');
     } else if (lowerCommand.contains('lake victoria') ||
         lowerCommand.contains('lake')) {
-      _describeSpecificTour('lake_victoria_shore');
+      await _describeSpecificTour('lake_victoria_shore');
     } else if (lowerCommand.contains('ndere') ||
         lowerCommand.contains('cultural centre')) {
-      _describeSpecificTour('ndere_centre');
+      await _describeSpecificTour('ndere_centre');
     } else if (lowerCommand.contains('market') ||
         lowerCommand.contains('owino')) {
-      _describeSpecificTour('kampala_markets');
+      await _describeSpecificTour('kampala_markets');
     }
     // Navigation commands
     else if (lowerCommand.contains('next tour') ||
         lowerCommand.contains('next')) {
-      _navigateToNextTour();
+      await _navigateToNextTour();
     } else if (lowerCommand.contains('previous tour') ||
         lowerCommand.contains('previous')) {
-      _navigateToPreviousTour();
+      await _navigateToPreviousTour();
     } else if (lowerCommand.contains('first tour') ||
         lowerCommand.contains('start')) {
-      _navigateToFirstTour();
+      await _navigateToFirstTour();
     } else if (lowerCommand.contains('last tour') ||
         lowerCommand.contains('end')) {
-      _navigateToLastTour();
+      await _navigateToLastTour();
     }
     // Information commands
     else if (lowerCommand.contains('help') ||
         lowerCommand.contains('commands')) {
-      _speakHelpCommands();
+      await _speakHelpCommands();
     } else if (lowerCommand.contains('tour count') ||
         lowerCommand.contains('how many')) {
-      _speakTourCount();
+      await _speakTourCount();
     } else if (lowerCommand.contains('current tour') ||
         lowerCommand.contains('where am i')) {
-      _speakCurrentTour();
+      await _speakCurrentTour();
     } else if (lowerCommand.contains('accessibility') ||
         lowerCommand.contains('accessible')) {
-      _speakAccessibilityInfo();
+      await _speakAccessibilityInfo();
+    }
+    // Navigation commands to other screens
+    else if (lowerCommand.contains('go home') ||
+        lowerCommand.contains('home') ||
+        lowerCommand.contains('main screen')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.home, (route) => false);
+      _ttsService.speakWithPriority('Navigating to home screen');
+    } else if (lowerCommand.contains('open map') ||
+        lowerCommand.contains('map') ||
+        lowerCommand.contains('show map')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
+      _ttsService.speakWithPriority('Opening interactive map');
+    } else if (lowerCommand.contains('downloads') ||
+        lowerCommand.contains('offline') ||
+        lowerCommand.contains('my downloads')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.downloads,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening offline library');
+    } else if (lowerCommand.contains('get help') ||
+        lowerCommand.contains('support') ||
+        lowerCommand.contains('assistance')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.helpSupport,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening help and support');
+    } else if (lowerCommand.contains('test voice') ||
+        lowerCommand.contains('voice test')) {
+      _ttsService.speakWithPriority(
+        'Voice commands are working in discover screen! You said: $command',
+      );
+    } else {
+      // Provide helpful feedback for unrecognized commands
+      _ttsService.speakWithPriority(
+        'Command not recognized. You said: "$command". Say "help" to hear available commands.',
+      );
     }
   }
 
-  void _describeSpecificTour(String tourId) {
+  Future<void> _describeSpecificTour(String tourId) async {
     final tour = _bugandaTours.firstWhere(
       (t) => t['id'] == tourId,
       orElse: () => _bugandaTours.first,
     );
 
-    _ttsService.speak('''
+    await _ttsService.speak('''
 ${tour['title']}. ${tour['audioDescription']}
 Duration: ${tour['duration']}. Distance: ${tour['distance']}.
 Accessibility: ${tour['accessibility']}.
@@ -333,17 +374,17 @@ Highlights: ${tour['highlights']}.
 ''');
   }
 
-  void _navigateToNextTour() {
+  Future<void> _navigateToNextTour() async {
     if (!mounted) return;
     if (_filteredTours.isNotEmpty) {
       setState(() {
         _currentTourIndex = (_currentTourIndex + 1) % _filteredTours.length;
       });
-      _speakCurrentTour();
+      await _speakCurrentTour();
     }
   }
 
-  void _navigateToPreviousTour() {
+  Future<void> _navigateToPreviousTour() async {
     if (!mounted) return;
     if (_filteredTours.isNotEmpty) {
       setState(() {
@@ -351,48 +392,48 @@ Highlights: ${tour['highlights']}.
             ? _currentTourIndex - 1
             : _filteredTours.length - 1;
       });
-      _speakCurrentTour();
+      await _speakCurrentTour();
     }
   }
 
-  void _navigateToFirstTour() {
+  Future<void> _navigateToFirstTour() async {
     if (!mounted) return;
     if (_filteredTours.isNotEmpty) {
       setState(() {
         _currentTourIndex = 0;
       });
-      _speakCurrentTour();
+      await _speakCurrentTour();
     }
   }
 
-  void _navigateToLastTour() {
+  Future<void> _navigateToLastTour() async {
     if (!mounted) return;
     if (_filteredTours.isNotEmpty) {
       setState(() {
         _currentTourIndex = _filteredTours.length - 1;
       });
-      _speakCurrentTour();
+      await _speakCurrentTour();
     }
   }
 
-  void _speakCurrentTour() {
+  Future<void> _speakCurrentTour() async {
     if (_filteredTours.isNotEmpty) {
       final tour = _filteredTours[_currentTourIndex];
-      _ttsService.speak('''
+      await _ttsService.speak('''
 Currently viewing tour ${_currentTourIndex + 1} of ${_filteredTours.length}: ${tour.title}.
 ${tour.description}
 ''');
     }
   }
 
-  void _speakTourCount() {
-    _ttsService.speak(
+  Future<void> _speakTourCount() async {
+    await _ttsService.speak(
       'There are ${_filteredTours.length} tours available in the current category.',
     );
   }
 
-  void _speakHelpCommands() {
-    _ttsService.speak('''
+  Future<void> _speakHelpCommands() async {
+    await _ttsService.speak('''
 Available voice commands for discover screen:
 Categories: "Show historical tours", "Show cultural tours", "Show nature tours", "Show royal tours", "Show spiritual tours"
 Tour navigation: "Next tour", "Previous tour", "First tour", "Last tour"
@@ -401,8 +442,8 @@ General: "Tour count", "Current tour", "Accessibility info", "Help commands"
 ''');
   }
 
-  void _speakAccessibilityInfo() {
-    _ttsService.speak('''
+  Future<void> _speakAccessibilityInfo() async {
+    await _ttsService.speak('''
 Accessibility features for Buganda tours:
 All major sites offer audio guides and guided tours.
 Wheelchair accessible paths are available at most locations.
@@ -581,7 +622,9 @@ Assistance animals are welcome at all locations.
         categoryDescription = 'All tours are available for exploration.';
     }
 
-    _ttsService.speakWithPriority('Filtering by $category tours. $categoryDescription');
+    _ttsService.speakWithPriority(
+      'Filtering by $category tours. $categoryDescription',
+    );
   }
 
   void _onTourSelected(TourModel tour) {

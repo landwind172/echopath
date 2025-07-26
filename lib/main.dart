@@ -8,6 +8,7 @@ import 'providers/app_state_provider.dart';
 import 'providers/voice_navigation_provider.dart';
 import 'providers/audio_provider.dart';
 import 'providers/location_provider.dart';
+import 'widgets/global_voice_navigation_widget.dart';
 
 import 'services/dependency_injection.dart';
 import 'services/navigation_service.dart';
@@ -45,6 +46,9 @@ class EchoGuideApp extends StatelessWidget {
         initialRoute: Routes.splash,
         routes: Routes.routes,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          return GlobalVoiceNavigationWidget(child: child!);
+        },
       ),
     );
   }

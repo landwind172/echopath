@@ -64,9 +64,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await Future.delayed(const Duration(milliseconds: 500));
     await _ttsService.speak(_pages[_currentPage].voiceText);
 
-    // Automatically advance to next page after speech completion
+    // Automatically advance to next page after 7 seconds
     if (mounted) {
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 7));
       if (mounted) {
         final appStateProvider = Provider.of<AppStateProvider>(
           context,
@@ -95,7 +95,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-      _speakCurrentPageWithoutAutoAdvance();
+      _speakCurrentPage();
     } else {
       _completeOnboarding();
     }
@@ -123,8 +123,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'Onboarding complete. Welcome to Echo Guide. You can now explore all the features using voice commands or the navigation buttons.',
     );
 
-    // Automatically transition to home screen after speech
-    Future.delayed(const Duration(seconds: 2), () {
+    // Automatically transition to home screen after 6 seconds
+    Future.delayed(const Duration(seconds: 6), () {
       if (mounted) {
         Navigator.of(context).pushReplacementNamed(Routes.home);
       }
@@ -144,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   setState(() {
                     _currentPage = index;
                   });
-                  _speakCurrentPageWithoutAutoAdvance();
+                  _speakCurrentPage();
                 },
                 itemCount: _pages.length,
                 itemBuilder: (context, index) {

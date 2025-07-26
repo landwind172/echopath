@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/voice_navigation_provider.dart';
 import '../services/tts_service.dart';
 import '../services/dependency_injection.dart';
+import '../core/routes.dart';
 import '../widgets/bottom_navigation_widget.dart';
 import '../widgets/voice_status_widget.dart';
 import '../widgets/help_section_widget.dart';
@@ -22,6 +25,82 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
+
+    // Listen for voice commands
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      voiceProvider.addListener(_onVoiceCommandReceived);
+    });
+  }
+
+  void _onVoiceCommandReceived() {
+    // Check if widget is still mounted before accessing context
+    if (!mounted) return;
+
+    try {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      if (voiceProvider.lastCommand.isNotEmpty) {
+        _handleHelpVoiceCommands(voiceProvider.lastCommand);
+        voiceProvider.clearLastCommand();
+      }
+    } catch (e) {
+      // Ignore errors if context is no longer available
+      debugPrint('Voice command error: $e');
+    }
+  }
+
+  void _handleHelpVoiceCommands(String command) {
+    final lowerCommand = command.toLowerCase();
+
+    // Navigation commands to other screens
+    if (lowerCommand.contains('go home') ||
+        lowerCommand.contains('home') ||
+        lowerCommand.contains('main screen')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.home, (route) => false);
+      _ttsService.speakWithPriority('Navigating to home screen');
+    } else if (lowerCommand.contains('open map') ||
+        lowerCommand.contains('map') ||
+        lowerCommand.contains('show map')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
+      _ttsService.speakWithPriority('Opening interactive map');
+    } else if (lowerCommand.contains('discover') ||
+        lowerCommand.contains('tours') ||
+        lowerCommand.contains('show tours')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.discover,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening discover tours');
+    } else if (lowerCommand.contains('downloads') ||
+        lowerCommand.contains('offline') ||
+        lowerCommand.contains('my downloads')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.downloads,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening offline library');
+    } else if (lowerCommand.contains('voice commands') ||
+        lowerCommand.contains('commands')) {
+      _speakVoiceCommands();
+    } else if (lowerCommand.contains('test voice') ||
+        lowerCommand.contains('voice test')) {
+      _ttsService.speakWithPriority(
+        'Voice commands are working in help screen! You said: $command',
+      );
+    } else {
+      // Provide helpful feedback for unrecognized commands
+      _ttsService.speakWithPriority(
+        'Command not recognized. You said: "$command". Say "voice commands" to hear available commands.',
+      );
+    }
   }
 
   Future<void> _initializeScreen() async {
@@ -181,7 +260,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               dense: true,
               leading: const Icon(Icons.keyboard_voice, size: 16),
               title: Text(command),
-              onTap: () => _ttsService.speak(command),
+              onTap: () async => await _ttsService.speak(command),
             ),
           )
           .toList(),
@@ -270,10 +349,29 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Future<void> _speakVoiceCommands() async {
-    await _ttsService.speakWithPriority(
-      'Voice commands are organized into categories: Navigation commands like go home, open map, show tours. Playback commands like play, pause, stop, next, previous. Map commands like where am I, zoom in, zoom out, find nearby places. You can use these commands from any screen.',
-    );
+  void _speakVoiceCommands() {
+    _ttsService.speakWithPriority('''
+Available voice commands in help screen:
+Navigation: "Go home", "Open map", "Discover", "Downloads"
+Information: "Voice commands" to hear this list
+Testing: "Test voice" to verify microphone is working
+All commands are designed for hands-free operation.
+''');
+  }
+
+  @override
+  void dispose() {
+    // Clean up voice navigation listener
+    try {
+      final voiceProvider = Provider.of<VoiceNavigationProvider>(
+        context,
+        listen: false,
+      );
+      voiceProvider.removeListener(_onVoiceCommandReceived);
+    } catch (e) {
+      // Ignore errors during dispose
+    }
+    super.dispose();
   }
 
   Future<void> _speakGettingStarted() async {

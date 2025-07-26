@@ -5,6 +5,7 @@ import '../providers/voice_navigation_provider.dart';
 import '../services/tts_service.dart';
 import '../services/download_service.dart';
 import '../services/dependency_injection.dart';
+import '../core/routes.dart';
 import '../widgets/bottom_navigation_widget.dart';
 import '../widgets/voice_status_widget.dart';
 import '../widgets/audio_player_widget.dart';
@@ -25,6 +26,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   List<Map<String, dynamic>> _offlineContent = [];
   String _selectedCategory = 'All';
   int _currentContentIndex = 0;
+  String? _contentToDelete; // For deletion confirmation
 
   final List<String> _categories = [
     'All',
@@ -666,6 +668,29 @@ The culture of Buganda is a living, evolving tradition that continues to inspire
         lowerCommand.contains('end')) {
       _navigateToLastContent();
     }
+    // Content selection commands
+    else if (lowerCommand.contains('select content') ||
+        lowerCommand.contains('choose content')) {
+      _speakContentSelection();
+    } else if (lowerCommand.contains('play content') ||
+        lowerCommand.contains('start content')) {
+      _playCurrentContent();
+    } else if (lowerCommand.contains('delete content') ||
+        lowerCommand.contains('remove content')) {
+      _deleteCurrentContent();
+    } else if (lowerCommand.contains('confirm delete') ||
+        lowerCommand.contains('yes delete')) {
+      _confirmDeleteContent();
+    } else if (lowerCommand.contains('cancel delete') ||
+        lowerCommand.contains('no delete')) {
+      _cancelDeleteContent();
+    } else if (lowerCommand.contains('play tour') ||
+        lowerCommand.contains('start tour')) {
+      _playTour('sample_tour_id');
+    } else if (lowerCommand.contains('show delete dialog') ||
+        lowerCommand.contains('delete dialog')) {
+      _showDeleteConfirmation('sample_tour_id');
+    }
     // Information commands
     else if (lowerCommand.contains('help') ||
         lowerCommand.contains('commands')) {
@@ -679,6 +704,46 @@ The culture of Buganda is a living, evolving tradition that continues to inspire
     } else if (lowerCommand.contains('storage info') ||
         lowerCommand.contains('storage')) {
       _speakStorageInfo();
+    } else if (lowerCommand.contains('test voice') ||
+        lowerCommand.contains('voice test')) {
+      _ttsService.speakWithPriority(
+        'Voice commands are working in downloads screen! You said: $command',
+      );
+    }
+    // Navigation commands to other screens
+    else if (lowerCommand.contains('go home') ||
+        lowerCommand.contains('home') ||
+        lowerCommand.contains('main screen')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.home, (route) => false);
+      _ttsService.speakWithPriority('Navigating to home screen');
+    } else if (lowerCommand.contains('open map') ||
+        lowerCommand.contains('map') ||
+        lowerCommand.contains('show map')) {
+      Navigator.pushNamedAndRemoveUntil(context, Routes.map, (route) => false);
+      _ttsService.speakWithPriority('Opening interactive map');
+    } else if (lowerCommand.contains('discover') ||
+        lowerCommand.contains('tours') ||
+        lowerCommand.contains('show tours')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.discover,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening discover tours');
+    } else if (lowerCommand.contains('get help') ||
+        lowerCommand.contains('support') ||
+        lowerCommand.contains('assistance')) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.helpSupport,
+        (route) => false,
+      );
+      _ttsService.speakWithPriority('Opening help and support');
+    } else {
+      // Provide helpful feedback for unrecognized commands
+      _ttsService.speakWithPriority(
+        'Command not recognized. You said: "$command". Say "help" to hear available commands.',
+      );
     }
   }
 
@@ -748,10 +813,84 @@ Accessibility: ${content['accessibility']}.
   void _speakCurrentContent() {
     if (_offlineContent.isNotEmpty) {
       final content = _offlineContent[_currentContentIndex];
-      _ttsService.speak('''
-Currently viewing content ${_currentContentIndex + 1} of ${_offlineContent.length}: ${content['title']}.
-${content['description']}
-''');
+      _ttsService.speakWithPriority(
+        'Current content: ${content['title']}. ${content['description']}. Duration: ${content['duration']}.',
+      );
+    } else {
+      _ttsService.speakWithPriority('No content available.');
+    }
+  }
+
+  void _speakContentSelection() {
+    if (_offlineContent.isEmpty) {
+      _ttsService.speakWithPriority('No content available for selection.');
+      return;
+    }
+
+    final content = _offlineContent[_currentContentIndex];
+    _ttsService.speakWithPriority(
+      'Selected: ${content['title']}. ${content['description']}. Say "play content" to start, or "next" or "previous" to browse.',
+    );
+  }
+
+  void _playCurrentContent() {
+    if (_offlineContent.isEmpty) {
+      _ttsService.speakWithPriority('No content available to play.');
+      return;
+    }
+
+    final content = _offlineContent[_currentContentIndex];
+    _playOfflineContent(content['id']);
+  }
+
+  void _deleteCurrentContent() {
+    if (_offlineContent.isEmpty) {
+      _ttsService.speakWithPriority('No content available to delete.');
+      return;
+    }
+
+    final content = _offlineContent[_currentContentIndex];
+    _ttsService.speakWithPriority(
+      'Delete confirmation for ${content['title']}. Say "confirm delete" to proceed or "cancel" to abort.',
+    );
+    // Store the content to be deleted for confirmation
+    _contentToDelete = content['id'];
+  }
+
+  void _confirmDeleteContent() {
+    if (_contentToDelete == null) return;
+
+    final content = _bugandaOfflineContent.firstWhere(
+      (c) => c['id'] == _contentToDelete,
+    );
+
+    _ttsService.speakWithPriority(
+      'Deleting ${content['title']}. This action cannot be undone.',
+    );
+
+    _deleteOfflineContent(_contentToDelete!);
+    _contentToDelete = null;
+  }
+
+  void _cancelDeleteContent() {
+    _ttsService.speakWithPriority('Delete cancelled.');
+    _contentToDelete = null;
+  }
+
+  Future<void> _deleteOfflineContent(String contentId) async {
+    if (!mounted) return;
+    try {
+      // For now, just remove from the local list since offline content is pre-loaded
+      setState(() {
+        _offlineContent.removeWhere((content) => content['id'] == contentId);
+        if (_currentContentIndex >= _offlineContent.length &&
+            _offlineContent.isNotEmpty) {
+          _currentContentIndex = _offlineContent.length - 1;
+        }
+      });
+      await _ttsService.speak('Content deleted successfully.');
+    } catch (e) {
+      await _ttsService.speak('Error deleting content.');
     }
   }
 
@@ -762,12 +901,16 @@ ${content['description']}
   }
 
   void _speakHelpCommands() {
-    _ttsService.speak('''
-Available voice commands for downloads screen:
-Categories: "Show tours", "Show guides", "Show stories", "Show music", "Show language"
-Content: "Play Kasubi guide", "Play Luganda guide", "Play stories", "Play music", "Play Kampala guide"
+    _ttsService.speakWithPriority('''
+Available voice commands in downloads screen:
 Navigation: "Next content", "Previous content", "First content", "Last content"
-Information: "Content count", "Current content", "Storage info", "Help commands"
+Categories: "Show tours", "Show guides", "Show stories", "Show music", "Show language", "Show all"
+Content: "Select content", "Play content", "Delete content", "Confirm delete", "Cancel delete"
+Specific content: "Kasubi guide", "Luganda", "Stories", "Music", "Kampala", "Culture"
+Tour control: "Play tour", "Show delete dialog"
+Information: "Content count", "Current content", "Storage info", "Help"
+Testing: "Test voice" to verify microphone is working
+Say any command clearly for seamless control of your offline content.
 ''');
   }
 
@@ -791,14 +934,36 @@ All content is available without internet connection.
   }
 
   Future<void> _initializeScreen() async {
-    await _ttsService.speakWithPriority(
-      'Offline library loaded. Voice navigation active. ${_bugandaOfflineContent.length} Buganda resources available including guides, stories, music, and language lessons. Say "show guides", "play Kasubi guide", or "help commands" for options.',
-    );
+    if (!mounted) return;
 
-    await _loadDownloadedTours();
-    _loadOfflineContent();
+    setState(() {
+      _isLoading = true;
+    });
 
-    // No automatic transition for main screens - user can navigate manually
+    try {
+      await _loadDownloadedTours();
+      _loadOfflineContent();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        await _ttsService.speakWithPriority(
+          'Offline library loaded. ${_offlineContent.length} items available. Use voice commands to navigate and control content. Say "help" for available commands.',
+        );
+      }
+    } catch (e) {
+      debugPrint('Initialize screen error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        await _ttsService.speakWithPriority(
+          'Error loading offline content. Please try again.',
+        );
+      }
+    }
   }
 
   void _loadOfflineContent() {

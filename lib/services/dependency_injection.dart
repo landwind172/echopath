@@ -5,6 +5,7 @@ import 'audio_service.dart';
 import 'location_service.dart';
 import 'firebase_service.dart';
 import 'navigation_service.dart';
+import 'navigation_coordinator.dart';
 import 'download_service.dart';
 import 'notification_service.dart';
 
@@ -19,6 +20,7 @@ class DependencyInjection {
     getIt.registerSingleton<LocationService>(LocationService());
     getIt.registerSingleton<FirebaseService>(FirebaseService());
     getIt.registerSingleton<NavigationService>(NavigationService());
+    getIt.registerSingleton<NavigationCoordinator>(NavigationCoordinator());
     getIt.registerSingleton<DownloadService>(DownloadService());
     getIt.registerSingleton<NotificationService>(NotificationService());
 
